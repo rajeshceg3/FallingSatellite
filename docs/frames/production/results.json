@@ -10,6 +10,16 @@
     "extra": ""
   },
   {
+    "name": "gate: one active zone, question locked first",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "gate: acting moves the one cue to the question",
+    "ok": true,
+    "extra": ""
+  },
+  {
     "name": "step 1 has 3 choices",
     "ok": true,
     "extra": ""
@@ -25,12 +35,47 @@
     "extra": ""
   },
   {
+    "name": "gate: answered step unlocks Next, cue gone",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "gate: throw step starts locked on the picture",
+    "ok": true,
+    "extra": ""
+  },
+  {
     "name": "gentle throw finishes paused",
     "ok": true,
     "extra": ""
   },
   {
+    "name": "gate: one throw alone does not unlock yet",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "gate: both throws unlock the question",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "gate: throw answered, Next unlocked",
+    "ok": true,
+    "extra": ""
+  },
+  {
     "name": "miss feedback explains falling-missing",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "gate: showing the pull moves to the question",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "gate: float answered after showing the pull",
     "ok": true,
     "extra": ""
   },
@@ -60,6 +105,11 @@
     "extra": "trail=145"
   },
   {
+    "name": "gate: watching unlocks the match question",
+    "ok": true,
+    "extra": ""
+  },
+  {
     "name": "match question answered",
     "ok": true,
     "extra": ""
@@ -68,6 +118,16 @@
     "name": "tilt trail covers a day",
     "ok": true,
     "extra": "trail=289"
+  },
+  {
+    "name": "gate: transfer locks the question until you look",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "gate: looking unlocks the transfer question",
+    "ok": true,
+    "extra": ""
   },
   {
     "name": "transfer wrong answer gets its own feedback",
@@ -97,7 +157,7 @@
   {
     "name": "reduced-motion Play snaps forward discretely",
     "ok": true,
-    "extra": "t=7200"
+    "extra": "t=10800"
   },
   {
     "name": "no page errors (reduced pass)",
