@@ -226,11 +226,11 @@ dialog h2 { line-height: 1.2; }
 }
 @media (max-width: 360px) {
   #ground { width: 64px; border-radius: 12px; }
-  header { padding: 10px 14px; gap: 10px; }
-  header a { font-size: 19px; }
+  header { padding: 10px; gap: 8px; }
+  header a { font-size: 17px; }
   h1 { font-size: 22px; line-height: 1.15; margin-bottom: 14px; }
   .actions { gap: 6px; }
-  .icon { width: 44px; min-width: 44px; padding: 0; }
+  .icon { width: 40px; min-width: 40px; padding: 0; }
   #next { font-size: 16px; line-height: 1.2; padding: 8px 6px; }
   #next span { display: none; }
   #guide { padding-top: 12px; }

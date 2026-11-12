@@ -215,6 +215,16 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
   /* ---- size matrix ---- */
   for (const [w, h, tag] of [[320, 568, '320'], [844, 390, 'landscape'], [1320, 900, 'desktop']]) {
     const p = await newPage(w, h, 'reduce');
+    {
+      const fits = await p.evaluate(() => {
+        const vw = document.documentElement.clientWidth;
+        return [...document.querySelectorAll('header > *')].every((el) => {
+          const r = el.getBoundingClientRect();
+          return r.left >= -0.5 && r.right <= vw + 0.5;
+        });
+      });
+      note(`gate: header controls fit viewport (${tag})`, fits);
+    }
     await p.locator('#next').click(); // drop
     await completeStep(p);
     await p.locator('#next').click(); // throw
