@@ -76,13 +76,14 @@ export const teachback = {
 export const STEP_COUNT = 10; // 0 orient … 9 done
 
 export function createJourney() {
-  return { step: 0, answers: {}, feedbackFor: null, transferChoice: null, transferFeedback: false, taughtBack: false };
+  return { step: 0, answers: {}, feedbackFor: null, transferChoice: null, transferFeedback: false, taughtBack: false, acted: {} };
 }
 
 export function reduceJourney(s, a) {
-  const n = { ...s, answers: { ...s.answers } };
+  const n = { ...s, answers: { ...s.answers }, acted: { ...s.acted } };
   switch (a.type) {
     case 'reset': return createJourney();
+    case 'acted': if (typeof a.step === 'string') n.acted[a.step] = true; return n;
     case 'start': if (s.step === 0) n.step = 1; return n;
     case 'next': if (s.step < STEP_COUNT - 1) { n.step++; n.feedbackFor = null; } return n;
     case 'back': if (s.step > 0) { n.step--; n.feedbackFor = null; } return n;

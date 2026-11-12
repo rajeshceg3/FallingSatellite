@@ -21,3 +21,7 @@ a scene stops it); Back/Reset/begin-again verified; OS reduced motion honored
 at load and on live change; keyboard/tap only (no drag gestures); evidence in
 tests/browser.cjs and docs/frames. Desktop mouse and 390px Chromium tested;
 no physical-phone or child-learning validation claimed.
+
+## Gate additions (Nov 12, user rules via main)
+- Calm main view: scene + one-line idea + Next/Back only. No "read more" or "scroll for more" cues in the main path; extra explanation lives behind the quiet info icon (About > About this step).
+- One active zone at a time: picture first, then question, then Next. The active zone gets one hand-drawn cue arrow that disappears once acted on; the other zone is dimmed/locked with a short plain label; Next stays disabled, saying why in a few words, until the step's action is done; after the answer, feedback shows what changed. Gate: browser checks assert exactly one active zone and locked states at 390px (see tests/browser.cjs "gate:" checks).

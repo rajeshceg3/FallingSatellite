@@ -47,6 +47,17 @@ test('transfer records, feedback shows, teachback flips', () => {
   assert.equal(s.taughtBack, true);
 });
 
+test('acted marks a step action done and survives answers', () => {
+  let s = createJourney();
+  assert.equal(s.acted.drop, undefined);
+  s = reduceJourney(s, { type: 'acted', step: 'drop' });
+  assert.equal(s.acted.drop, true);
+  s = reduceJourney(s, { type: 'answer', question: 'drop', choice: 0 });
+  assert.equal(s.acted.drop, true);
+  s = reduceJourney(s, { type: 'reset' });
+  assert.deepEqual(s.acted, {});
+});
+
 test('every question has an answer and one why per choice', () => {
   for (const q of Object.values(questions)) {
     assert(Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.choices.length);

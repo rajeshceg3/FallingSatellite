@@ -63,8 +63,21 @@ function fit() {
   groundCanvas.width = Math.round(GW * dpr); groundCanvas.height = Math.round(GW * dpr);
   gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   draw();
+  positionCue(zoneState(STEPS[journey.step]));
 }
 new ResizeObserver(fit).observe(sceneCanvas.parentElement);
+
+/* the one cue arrow: points at the single active zone, then disappears */
+function positionCue(zone) {
+  const cue = $('cue');
+  if (!zone || zone.active === 'done' || zone.active === 'none') { cue.hidden = true; return; }
+  const target = $(zone.active === 'scene' ? 'scene-dock' : 'answers');
+  const host = $('workshop');
+  const tr = target.getBoundingClientRect(), hr = host.getBoundingClientRect();
+  cue.hidden = false;
+  cue.style.left = `${tr.left - hr.left + tr.width / 2 - 23}px`;
+  cue.style.top = `${tr.top - hr.top - 62}px`;
+}
 
 /* ---------- seeded ink strokes (deterministic for stable frames) ---------- */
 const hash = (n) => {
@@ -142,11 +155,11 @@ const STEPS = [
   { id: 'throw', title: 'Throw it sideways',
     copy: 'Throw sideways instead. The ball still falls the whole time, but it travels while falling. Try Gentle and Strong.',
     more: 'The sideways speed and the falling are separate. Gravity keeps pulling down at the same rate no matter how fast the ball moves sideways.',
-    question: 'throw', scene: 'throw', throws: ['gentle', 'strong'] },
+    question: 'throw', scene: 'throw', throws: ['gentle', 'strong'], need: ['gentle', 'strong'] },
   { id: 'miss', title: 'Throw hard enough to miss the ground',
     copy: 'Earth is round, so the ground curves away. Throw about 8 kilometres a second and the ball falls all the way around. Try Mightiest.',
     more: 'Thrown at about 8 kilometres every second, the ball falls as fast as the ground curves away beneath it, so it keeps missing — that is an orbit. We are pretending there is no air to slow the ball, and no mountains in the way. Real rockets first climb above the air, then turn sideways to reach orbit speed. Throw harder still — past about 11 kilometres a second — and the ball escapes Earth forever. This app keeps the three honest throws.',
-    question: 'miss', scene: 'throw', throws: ['gentle', 'strong', 'mightiest'] },
+    question: 'miss', scene: 'throw', throws: ['gentle', 'strong', 'mightiest'], need: ['mightiest'] },
   { id: 'float', title: 'There IS gravity up here',
     copy: 'Up here, Earth’s pull is nearly as strong as on the ground. Tap Show Earth’s pull. So why do astronauts float?',
     more: 'This satellite circles close above Earth, where the pull is about nine-tenths of the pull on the ground. Astronauts float because they and their station are falling around Earth together: nothing presses them to the floor, the same way riders float in a falling lift. “Weightless” never means “no gravity”.',
@@ -170,13 +183,56 @@ const STEPS = [
   { id: 'transfer', title: 'One last puzzle', scene: 'transfer', ground: true, transfer: true },
 ];
 
+/* ---------- one active zone at a time ----------
+   Picture first, then the question, then Next. Exactly one zone is active:
+   it gets the single hand-drawn cue arrow; the other is dimmed and locked
+   with a short plain label. Next stays disabled, saying why in a few words,
+   until the step's action is done. */
+function stepNeeds(st) {
+  if (st.id === 'cover') return null;
+  const action = st.scene === 'drop' ? 'drop' : st.scene === 'throw' ? 'throw' : st.scene === 'orbitLow' ? 'pull' : 'time';
+  return { action, question: st.transfer ? 'transfer' : st.question || null };
+}
+const WHY_ACT = {
+  drop: 'Drop the ball first',
+  throw: 'Try the throws first',
+  pull: 'Show Earth’s pull first',
+  time: 'Play or step the picture first',
+};
+function questionDone(st) {
+  const n = stepNeeds(st);
+  if (!n || !n.question) return true;
+  return n.question === 'transfer' ? journey.transferChoice !== null : journey.answers[st.question] !== undefined;
+}
+function zoneState(st) {
+  const n = stepNeeds(st);
+  if (!n) return { active: 'none', nextEnabled: true };
+  if (!journey.acted[st.id]) return { active: 'scene', nextEnabled: false, why: WHY_ACT[n.action] };
+  if (!questionDone(st)) return { active: 'question', nextEnabled: false, why: 'Answer the question first' };
+  return { active: 'done', nextEnabled: true };
+}
+function markActed() {
+  const st = STEPS[journey.step];
+  const n = stepNeeds(st);
+  if (!n || journey.acted[st.id] || !scene) return;
+  let ok = false;
+  if (n.action === 'drop') ok = scene.dropped && scene.anim >= 1;
+  else if (n.action === 'throw') ok = (st.need || st.throws).every((k) => scene.thrownSet && scene.thrownSet[k]);
+  else if (n.action === 'pull') ok = !!scene.pull;
+  else ok = scene.t > 0;
+  if (ok) {
+    journey = reduceJourney(journey, { type: 'acted', step: st.id });
+    renderGuide();
+  }
+}
+
 /* ---------- scene state ---------- */
 let journey = createJourney();
 let scene = null;
 function makeScene(id) {
   const base = { id, playing: false, t: 0, trail: [], pull: false };
   if (id === 'drop') return { ...base, dropped: false, anim: 0 };
-  if (id === 'throw') return { ...base, run: null, idx: 0, choice: null, done: '' };
+  if (id === 'throw') return { ...base, run: null, idx: 0, choice: null, done: '', thrownSet: {} };
   return base;
 }
 const ORBIT_FOR = { orbitLow: CASES.low, compare: null, spin: CASES.low, match: CASES.stationary, tilt: CASES.tiltedMatched, transfer: circular(MATCHED_RADIUS, Math.PI / 12) };
@@ -189,6 +245,7 @@ const STEP_SIZES = { orbitLow: [60, 600], compare: [900, 3600], spin: [900, 3600
 const answerEls = [];
 function renderGuide() {
   const st = STEPS[journey.step];
+  const zone = zoneState(st);
   $('step-title').textContent = st.title;
   const isTransfer = !!st.transfer;
   $('step-copy').textContent = isTransfer
@@ -199,10 +256,18 @@ function renderGuide() {
   box.innerHTML = '';
   answerEls.length = 0;
   const q = isTransfer ? transfer : st.question ? questions[st.question] : null;
+  box.classList.toggle('locked', zone.active === 'scene');
   if (q) {
+    if (zone.active === 'scene') {
+      const lab = document.createElement('p');
+      lab.className = 'zone-label';
+      lab.textContent = 'First: try the picture ↑';
+      box.appendChild(lab);
+    }
     q.choices.forEach((c, i) => {
       const b = document.createElement('button');
       b.textContent = c;
+      if (zone.active === 'scene') b.disabled = true;
       const chosen = isTransfer ? journey.transferChoice : journey.answers[st.question];
       if (chosen === i) b.setAttribute('aria-pressed', 'true');
       if ((isTransfer ? journey.transferFeedback : journey.feedbackFor === st.question) && i === q.answer) b.classList.add('correct');
@@ -240,11 +305,15 @@ function renderGuide() {
   // next/back
   $('back').disabled = journey.step === 0;
   const next = $('next');
-  if (journey.step === 0) next.innerHTML = 'Start learning <span aria-hidden="true">→</span>';
+  next.disabled = !zone.nextEnabled;
+  if (!zone.nextEnabled) next.textContent = zone.why;
+  else if (journey.step === 0) next.innerHTML = 'Start learning <span aria-hidden="true">→</span>';
   else if (journey.step === STEP_COUNT - 1) next.innerHTML = 'Begin again <span aria-hidden="true">↺</span>';
   else next.innerHTML = 'Next <span aria-hidden="true">→</span>';
   if (fb) $('feedback').scrollIntoView({ block: 'nearest' });
   $('step-title').focus({ preventScroll: true });
+  buildDock();
+  positionCue(zone);
 }
 
 function go(type) {
@@ -268,6 +337,17 @@ function dockButton(label, action, opts = {}) {
   b.addEventListener('click', () => { action(); draw(); });
   return b;
 }
+function finishDock(dock) {
+  const zone = zoneState(STEPS[journey.step]);
+  dock.classList.toggle('locked', zone.active === 'question');
+  if (zone.active === 'question') {
+    for (const b of dock.querySelectorAll('button')) b.disabled = true;
+    const lab = document.createElement('div');
+    lab.className = 'dock-label';
+    lab.textContent = 'Answer below to go on ↓';
+    dock.appendChild(lab);
+  }
+}
 function buildDock() {
   const dock = $('scene-dock');
   dock.innerHTML = '';
@@ -278,12 +358,14 @@ function buildDock() {
       scene.dropped = true; scene.anim = reducedMotion ? 1 : 0.0001;
       if (!reducedMotion) { scene.playing = true; lastWall = null; if (!rafId) rafId = requestAnimationFrame(tick); }
     }));
+    finishDock(dock);
     return;
   }
   if (scene.id === 'throw') {
     for (const key of st.throws) {
       dock.appendChild(dockButton(THROWS[key].label, () => launchThrow(key), { pressed: scene.choice === key, aria: `${THROWS[key].label} throw` }));
     }
+    finishDock(dock);
     return;
   }
   const sid = scene.id;
@@ -299,12 +381,14 @@ function buildDock() {
     dock.appendChild(dockButton('Show Earth’s pull', () => { scene.pull = !scene.pull; buildDock(); }, { pressed: scene.pull }));
   }
   dock.appendChild(dockButton('↺ Start over', () => { const keep = scene.pull; scene = makeScene(scene.id); scene.pull = keep; buildDock(); }, { aria: 'Reset this scene' }));
+  finishDock(dock);
 }
 function launchThrow(key) {
   const th = THROWS[key];
   const isOrbit = key === 'mightiest';
   const run = march(th.speed, { altitude: LAUNCH_ALT, maxSeconds: isOrbit ? 2.2 * (2 * Math.PI * Math.sqrt((EARTH_RADIUS + LAUNCH_ALT) ** 3 / 3.986004415e14)) : 30000 });
   scene.run = run; scene.choice = key; scene.idx = reducedMotion ? run.samples.length - 1 : 0;
+  if (reducedMotion) scene.thrownSet[key] = true;
   scene.done = '';
   if (!reducedMotion) startPlayback();
   buildDock();
@@ -371,16 +455,10 @@ function drawEarthDisk(ctx, cx, cy, r, seed, withHome, t) {
   ctx.restore();
 }
 function drawTime(ctx, lines) {
-  // caption chip: text always sits on paper, never on top of the art
   ctx.save();
-  ctx.font = '600 13px system-ui, sans-serif';
-  const wmax = Math.max(...lines.map((s) => ctx.measureText(s).width));
-  const cw = Math.min(wmax + 22, SW - 16), ch = 13 + lines.length * 19;
-  ctx.globalAlpha = 0.96;
-  ctx.fillStyle = palette.paper; ctx.strokeStyle = palette.ink; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.roundRect(8, 8, cw, ch, 10); ctx.fill(); ctx.stroke();
+  ctx.globalAlpha = 0.92;
+  lines.forEach((s, i) => inkText(ctx, s, 16, 26 + i * 20, 14));
   ctx.restore();
-  lines.forEach((s, i) => inkText(ctx, s, 19, 27 + i * 19, 13));
 }
 
 /* ---------- drawing: scenes ---------- */
@@ -390,12 +468,14 @@ function draw() {
   if (!scene) return;
   sceneCanvas.setAttribute('aria-label', sceneLabel(st));
   const id = scene.id;
+  sceneCanvas.dataset.sceneId = id;
   groundCanvas.hidden = !st.ground;
   if (id === 'cover') drawCover();
   else if (id === 'drop') drawDrop();
   else if (id === 'throw') drawThrow();
   else drawOrbitSet(st);
   if (st.ground) drawGround();
+  markActed();
 }
 function sceneLabel(st) {
   const base = {
@@ -463,8 +543,8 @@ function drawDrop() {
 
 function drawThrow() {
   const availH = SH - 120; // leave the dock its own space
-  const cx = SW / 2, cy = availH / 2 + 18;
-  const k = (Math.min(SW, availH) * 0.42) / (EARTH_RADIUS * 1.06);
+  const cx = SW / 2, cy = availH / 2 + 8;
+  const k = (Math.min(SW, availH) * 0.48) / (EARTH_RADIUS * 1.06);
   const re = EARTH_RADIUS * k;
   drawEarthDisk(sctx, cx, cy, re, 3, false, 0);
   // pretend mountain at the top
@@ -472,18 +552,17 @@ function drawThrow() {
   sctx.strokeStyle = palette.ink; sctx.lineWidth = 2;
   inkLine(sctx, mx - 10, cy - re + 3, mx, my, 31, 0.8);
   inkLine(sctx, mx, my, mx + 10, cy - re + 3, 32, 0.8);
-  // mountain caption: clear of the art, top right
-  sctx.save();
-  sctx.font = '600 11px system-ui, sans-serif';
-  sctx.fillStyle = palette.ink; sctx.textAlign = 'right';
-  sctx.fillText('a pretend 400 km', SW - 14, 18);
-  sctx.fillText('mountain, above the air', SW - 14, 32);
+  sctx.save(); sctx.font = '600 12px system-ui, sans-serif';
+  const mLabel = 'a pretend 400 km mountain, above the air';
+  const mw = sctx.measureText(mLabel).width;
   sctx.restore();
-  inkLine(sctx, mx + 12, my + 2, SW - 118, 24, 33, 0.5);
+  sctx.save(); sctx.font = '600 12px system-ui, sans-serif'; sctx.textAlign = 'center'; sctx.fillStyle = palette.ink;
+  sctx.fillText(mLabel, Math.min(Math.max(mx, mw / 2 + 8), SW - mw / 2 - 8), Math.max(my - 10, 16));
+  sctx.restore();
   inkText(sctx, 'not to scale', 16, availH + 8, 12);
   const run = scene.run;
   if (!run) {
-    drawTime(sctx, ['Pick a throw strength.']);
+    inkText(sctx, 'Pick a throw strength.', 16, 26, 14);
     return;
   }
   // reveal path up to idx
@@ -504,7 +583,7 @@ function drawThrow() {
   const span = run.samples.reduce((m, s) => Math.max(m, Math.abs(Math.atan2(s.position[0], s.position[1]))), 0);
   if (span < 0.3) {
     const bw = Math.min(SW * 0.52, 240), bh = bw * 0.62;
-    const bx = 14, by2 = 52;
+    const bx = 14, by2 = 34;
     sctx.save();
     sctx.fillStyle = palette.paper; sctx.strokeStyle = palette.ink; sctx.lineWidth = 1.6;
     sctx.beginPath(); sctx.roundRect(bx, by2, bw, bh, 14); sctx.fill(); sctx.stroke();
@@ -535,20 +614,18 @@ function drawThrow() {
     }
     sctx.stroke();
     inkText(sctx, 'zoomed in, same throw', bx + 10, by2 + 15, 11);
+    sctx.restore();
   }
   const finished = upto >= run.samples.length - 1;
   let msg;
-  if (!finished) {
-    msg = `${(THROWS[scene.choice].speed / 1000).toFixed(1)} km a second · ${fmtDur(cur.time)}`;
-    drawTime(sctx, [msg]);
-  } else if (run.end === 'landed') {
+  if (!finished) msg = `${(THROWS[scene.choice].speed / 1000).toFixed(1)} km every second…  ${fmtDur(cur.time)}`;
+  else if (run.end === 'landed') {
     const ang = Math.atan2(run.final.position[0], run.final.position[1]);
+    msg = `Landed about ${fmtKm(EARTH_RADIUS * Math.abs(ang))} away, after ${fmtDur(run.final.time)}.`;
     inkLine(sctx, bx - 14, by - 2, bx - 22, by - 12, 41, 0.6);
     inkLine(sctx, bx + 14, by - 2, bx + 22, by - 12, 42, 0.6);
-    drawTime(sctx, [`Landed about ${fmtKm(EARTH_RADIUS * Math.abs(ang))} away,`, `after ${fmtDur(run.final.time)}.`]);
-  } else {
-    drawTime(sctx, ['It came all the way around —', 'still falling, still missing.']);
-  }
+  } else msg = 'It came all the way around — still falling, still missing the ground.';
+  drawTime(sctx, [msg]);
 }
 
 function drawOrbitSet(st) {
@@ -680,8 +757,12 @@ function tick(now) {
     if (scene.dropped && scene.anim < 1) scene.anim = Math.min(1, scene.anim + dt / 1.1);
   } else if (scene.id === 'throw') {
     if (scene.run) {
-      scene.idx = Math.min(scene.run.samples.length - 1, scene.idx + Math.max(1, Math.round(dt * 55)));
-      if (scene.idx >= scene.run.samples.length - 1 && scene.choice === 'mightiest') scene.idx = 0; // keep orbiting
+      const last = scene.run.samples.length - 1;
+      scene.idx = Math.min(last, scene.idx + Math.max(1, Math.round(dt * 55)));
+      if (scene.idx >= last) {
+        scene.thrownSet[scene.choice] = true;
+        if (scene.choice === 'mightiest') scene.idx = 0; // keep orbiting
+      }
     }
   } else if (RATE[scene.id]) {
     const before = scene.t;
@@ -696,9 +777,13 @@ function snapAdvance() {
   if (!scene || !scene.playing) return;
   if (scene.id === 'throw') {
     if (scene.run) {
-      scene.idx = Math.min(scene.run.samples.length - 1, scene.idx + 28);
-      if (scene.idx >= scene.run.samples.length - 1 && scene.choice === 'mightiest') scene.idx = 0;
-      else if (scene.idx >= scene.run.samples.length - 1) stopPlayback();
+      const last = scene.run.samples.length - 1;
+      scene.idx = Math.min(last, scene.idx + 28);
+      if (scene.idx >= last) {
+        scene.thrownSet[scene.choice] = true;
+        if (scene.choice === 'mightiest') scene.idx = 0;
+        else stopPlayback();
+      }
     }
   } else if (scene.id === 'drop') {
     scene.anim = 1; stopPlayback();
@@ -747,6 +832,7 @@ $('about-close').addEventListener('click', () => $('about').close());
 
 /* ---------- test evidence ---------- */
 export function journeyEvidence() {
+  const z = zoneState(STEPS[journey.step]);
   return {
     step: journey.step,
     stepId: STEPS[journey.step].id,
@@ -754,6 +840,14 @@ export function journeyEvidence() {
     groundShown: !groundCanvas.hidden,
     dock: [...$('scene-dock').children].map((b) => b.textContent),
     answers: { ...journey.answers },
+    acted: { ...journey.acted },
+    zone: z.active,
+    nextEnabled: z.nextEnabled,
+    nextDisabled: $('next').disabled,
+    nextText: $('next').textContent,
+    cue: $('cue').hidden ? null : z.active,
+    answersLocked: $('answers').classList.contains('locked'),
+    dockLocked: $('scene-dock').classList.contains('locked'),
     transferChoice: journey.transferChoice,
     feedback: $('feedback').textContent,
     sceneT: scene ? scene.t : null,

@@ -24,6 +24,26 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     return p;
   }
   const ev = (p) => p.evaluate(async () => (await import('./main.js')).journeyEvidence());
+  // complete the current step: act on the picture first, then answer, so Next unlocks
+  async function completeStep(p) {
+    let e = await ev(p);
+    if (e.zone === 'scene') {
+      if (e.stepId === 'drop') await p.locator('#scene-dock button').first().click();
+      else if (e.stepId === 'throw') {
+        await p.locator('#scene-dock button', { hasText: 'Gentle' }).click();
+        await p.locator('#scene-dock button', { hasText: 'Strong' }).click();
+      } else if (e.stepId === 'miss') await p.locator('#scene-dock button', { hasText: 'Mightiest' }).click();
+      else if (e.stepId === 'float') await p.locator('#scene-dock button', { hasText: 'pull' }).click();
+      else await p.locator('#scene-dock button', { hasText: '+1 h' }).first().click();
+      await p.waitForFunction(async (sid) => (await import('./main.js')).journeyEvidence().acted[sid] === true, e.stepId, { timeout: 20000 });
+      e = await ev(p);
+    }
+    if (e.zone === 'question') {
+      await p.locator('#answers button').first().click();
+      e = await ev(p);
+    }
+    return e;
+  }
 
   /* ---- main pass: 390px, no-preference motion ---- */
   {
@@ -35,8 +55,11 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await p.locator('#next').click();
     e = await ev(p);
     note('step 1 drop: Drop button present', e.dock.some((d) => d.includes('Drop')));
+    note('gate: one active zone, question locked first', e.zone === 'scene' && e.answersLocked && !e.dockLocked && e.nextDisabled && e.cue === 'scene' && e.nextText.includes('Drop'));
     await p.locator('#scene-dock button').first().click();
     await p.waitForTimeout(1400);
+    e = await ev(p);
+    note('gate: acting moves the one cue to the question', e.zone === 'question' && e.dockLocked && !e.answersLocked && e.nextDisabled && e.cue === 'question' && e.nextText.includes('Answer'));
     await p.screenshot({ path: `${out}/02-drop-landed-390.png` });
     // wrong answer then right answer (retry)
     const ans = p.locator('#answers button');
@@ -47,9 +70,12 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await ans.nth(0).click();
     e = await ev(p);
     note('retry right answer acknowledged', e.feedback.startsWith('Yes'));
+    note('gate: answered step unlocks Next, cue gone', e.zone === 'done' && !e.nextDisabled && e.cue === null && !e.answersLocked && !e.dockLocked);
     await p.screenshot({ path: `${out}/03-drop-answered-390.png` });
 
     await p.locator('#next').click();
+    e = await ev(p);
+    note('gate: throw step starts locked on the picture', e.zone === 'scene' && e.answersLocked && e.nextDisabled);
     await p.locator('#scene-dock button', { hasText: 'Gentle' }).click();
     await p.waitForTimeout(300);
     await p.screenshot({ path: `${out}/04-throw-gentle-flying-390.png` });
@@ -57,14 +83,20 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await p.waitForTimeout(9000);
     e = await ev(p);
     note('gentle throw finishes paused', e.playing === false);
+    note('gate: one throw alone does not unlock yet', e.zone === 'scene' && e.nextDisabled);
     await p.screenshot({ path: `${out}/05-throw-gentle-landed-390.png` });
     await p.locator('#scene-dock button', { hasText: 'Strong' }).click();
     await p.waitForTimeout(12000);
+    e = await ev(p);
+    note('gate: both throws unlock the question', e.zone === 'question' && e.dockLocked);
     await p.screenshot({ path: `${out}/06-throw-strong-landed-390.png` });
+    await p.locator('#answers button').first().click();
+    e = await ev(p);
+    note('gate: throw answered, Next unlocked', e.zone === 'done' && !e.nextDisabled);
 
     await p.locator('#next').click();
     await p.locator('#scene-dock button', { hasText: 'Mightiest' }).click();
-    await p.waitForTimeout(11000);
+    await p.waitForFunction(async () => (await import('./main.js')).journeyEvidence().zone === 'question', { timeout: 30000 });
     await p.screenshot({ path: `${out}/07-mightiest-orbit-390.png` });
     // answer the bridge question
     await p.locator('#answers button').first().click();
@@ -73,6 +105,11 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
 
     await p.locator('#next').click(); // float
     await p.locator('#scene-dock button', { hasText: 'pull' }).click();
+    e = await ev(p);
+    note('gate: showing the pull moves to the question', e.zone === 'question');
+    await p.locator('#answers button').first().click();
+    e = await ev(p);
+    note('gate: float answered after showing the pull', e.zone === 'done' && !e.nextDisabled);
     await p.locator('#scene-dock button', { hasText: 'Play' }).click();
     await p.waitForTimeout(2500);
     e = await ev(p);
@@ -100,11 +137,14 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await p.screenshot({ path: `${out}/10-spin-ground-390.png` });
 
     await p.locator('#next').click(); // match
-    for (let i = 0; i < 8; i++) await p.locator('#scene-dock button', { hasText: '+1 h' }).click();
-    await p.screenshot({ path: `${out}/11-match-ground-390.png` });
+    await p.locator('#scene-dock button', { hasText: '+1 h' }).first().click();
+    e = await ev(p);
+    note('gate: watching unlocks the match question', e.zone === 'question');
     await p.locator('#answers button').first().click();
     e = await ev(p);
     note('match question answered', 'match' in e.answers);
+    for (let i = 0; i < 7; i++) await p.locator('#scene-dock button', { hasText: '+1 h' }).click();
+    await p.screenshot({ path: `${out}/11-match-ground-390.png` });
 
     await p.locator('#next').click(); // tilt
     for (let i = 0; i < 24; i++) await p.locator('#scene-dock button', { hasText: '+1 h' }).click();
@@ -113,6 +153,12 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     note('tilt trail covers a day', e.trail > 40, `trail=${e.trail}`);
 
     await p.locator('#next').click(); // transfer
+    e = await ev(p);
+    note('gate: transfer locks the question until you look', e.zone === 'scene' && e.answersLocked && e.nextDisabled && e.cue === 'scene');
+    await p.screenshot({ path: `${out}/13a-transfer-entry-390.png` });
+    await p.locator('#scene-dock button', { hasText: '+1 h' }).first().click();
+    e = await ev(p);
+    note('gate: looking unlocks the transfer question', e.zone === 'question' && e.cue === 'question');
     await p.locator('#answers button').nth(1).click(); // wrong on purpose
     e = await ev(p);
     note('transfer wrong answer gets its own feedback', e.feedback.includes('One day is not enough'));
@@ -136,9 +182,9 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     const p = await newPage(390, 844, 'reduce');
     let e = await ev(p);
     await p.locator('#next').click();
-    await p.locator('#scene-dock button').first().click(); // drop: instant under reduce
+    e = await completeStep(p); // drop: instant under reduce
     await p.screenshot({ path: `${out}/20-drop-reduced-390.png` });
-    for (let i = 0; i < 5; i++) await p.locator('#next').click();
+    for (let i = 0; i < 5; i++) { await p.locator('#next').click(); e = await completeStep(p); }
     e = await ev(p); // spin
     await p.locator('#scene-dock button', { hasText: 'Play' }).click();
     await p.waitForTimeout(2200);
@@ -153,11 +199,13 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
   /* ---- size matrix ---- */
   for (const [w, h, tag] of [[320, 568, '320'], [844, 390, 'landscape'], [1320, 900, 'desktop']]) {
     const p = await newPage(w, h, 'reduce');
-    await p.locator('#next').click();
-    await p.locator('#next').click();
+    await p.locator('#next').click(); // drop
+    await completeStep(p);
+    await p.locator('#next').click(); // throw
     await p.locator('#scene-dock button', { hasText: 'Gentle' }).click();
     await p.screenshot({ path: `${out}/30-throw-${tag}.png` });
-    for (let i = 0; i < 5; i++) await p.locator('#next').click();
+    await completeStep(p); // strong + answer
+    for (let i = 0; i < 5; i++) { await p.locator('#next').click(); await completeStep(p); }
     for (let i = 0; i < 6; i++) await p.locator('#scene-dock button', { hasText: '+1 h' }).click();
     await p.screenshot({ path: `${out}/31-match-${tag}.png` });
     note(`no page errors (${tag})`, p.errors.length === 0, p.errors.join(' | '));
@@ -168,9 +216,10 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
   {
     const p = await newPage(390, 844, 'reduce');
     await p.locator('#theme').click();
-    await p.locator('#next').click();
+    await p.locator('#next').click(); // drop
     await p.screenshot({ path: `${out}/40-drop-dark-390.png` });
-    for (let i = 0; i < 6; i++) await p.locator('#next').click();
+    await completeStep(p);
+    for (let i = 0; i < 6; i++) { await p.locator('#next').click(); await completeStep(p); }
     for (let i = 0; i < 6; i++) await p.locator('#scene-dock button', { hasText: '+1 h' }).click();
     await p.screenshot({ path: `${out}/41-match-dark-390.png` });
     note('no page errors (dark)', p.errors.length === 0, p.errors.join(' | '));

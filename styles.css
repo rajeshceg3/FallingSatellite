@@ -71,6 +71,24 @@ button:focus-visible, summary:focus-visible, a:focus-visible {
   padding: 0 32px;
   gap: clamp(24px, 4vw, 64px);
 }
+#workshop { position: relative; }
+#cue {
+  position: absolute;
+  pointer-events: none;
+  z-index: 30;
+}
+#cue path {
+  stroke: var(--ink);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+#answers.locked button { opacity: 0.45; }
+.zone-label { font-size: 14px; opacity: 0.72; margin: 0 0 10px; }
+#scene-dock.locked button { opacity: 0.45; }
+.dock-label { flex-basis: 100%; text-align: center; font-size: 13px; opacity: 0.72; }
+#next:disabled { opacity: 0.7; box-shadow: none; cursor: default; }
 #model-stage {
   position: relative;
   min-width: 0;
