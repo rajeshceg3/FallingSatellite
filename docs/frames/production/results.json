@@ -1,0 +1,137 @@
+[
+  {
+    "name": "cover starts paused",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "step 1 drop: Drop button present",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "step 1 has 3 choices",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "wrong answer gives honest feedback",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "retry right answer acknowledged",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "gentle throw finishes paused",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "miss feedback explains falling-missing",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "orbitLow playing advances sim time",
+    "ok": true,
+    "extra": "t=646s"
+  },
+  {
+    "name": "pause stops playback",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "compare advances a long day fast",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "ground panel shown on spin",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "stepping 12 h grows ground trail",
+    "ok": true,
+    "extra": "trail=145"
+  },
+  {
+    "name": "match question answered",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "tilt trail covers a day",
+    "ok": true,
+    "extra": "trail=289"
+  },
+  {
+    "name": "transfer wrong answer gets its own feedback",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "transfer right answer explains tilt drift",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "teachback reveals model answer",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "begin again resets the journey",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "no page errors (390 main pass)",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "reduced-motion Play snaps forward discretely",
+    "ok": true,
+    "extra": "t=7200"
+  },
+  {
+    "name": "no page errors (reduced pass)",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "no page errors (320)",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "no page errors (landscape)",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "no page errors (desktop)",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "no page errors (dark)",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "about dialog opens on demand",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "no page errors (about)",
+    "ok": true,
+    "extra": ""
+  }
+]

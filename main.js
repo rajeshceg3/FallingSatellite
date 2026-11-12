@@ -479,7 +479,7 @@ function drawThrow() {
   const mLabel = 'a pretend 400 km mountain, above the air';
   const mw = sctx.measureText(mLabel).width;
   sctx.restore();
-  inkText(sctx, mLabel, Math.min(Math.max(mx + 14, 8), SW - mw - 8), Math.max(my - 8, 34), 12);
+  inkText(sctx, mLabel, Math.min(Math.max(mx + 14, 8), SW - mw - 8), Math.max(my - 8, 58), 12);
   inkText(sctx, 'not to scale', 16, availH + 8, 12);
   const run = scene.run;
   if (!run) {
