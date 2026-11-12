@@ -85,11 +85,12 @@ button:focus-visible, summary:focus-visible, a:focus-visible {
   position: absolute;
   right: 14px;
   top: 14px;
-  width: clamp(120px, 30%, 220px);
+  width: clamp(110px, 28%, 180px);
   aspect-ratio: 1;
   background: var(--paper);
   border: 2px solid var(--ink);
   border-radius: 18px;
+  box-shadow: 2px 3px 0 var(--ink);
   box-shadow: 2px 3px 0 var(--ink);
 }
 #scene-dock {

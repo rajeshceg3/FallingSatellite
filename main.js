@@ -133,38 +133,38 @@ const THROWS = {
 
 const STEPS = [
   { id: 'cover', title: 'The Falling Satellite',
-    copy: 'A satellite is always falling toward Earth. It stays up because it keeps missing. Let’s see how — one throw at a time.',
+    copy: 'A satellite is always falling toward Earth. It stays up by missing the ground. Let’s see how.',
     scene: 'cover' },
   { id: 'drop', title: 'Everything falls',
-    copy: 'Hold a ball high and let go. Down it comes. Everything falls — here on the ground, and high up where satellites fly. Tap Drop and watch.',
+    copy: 'Hold a ball high, then tap Drop. Down it comes. Everything falls — even high up where satellites fly.',
     more: 'Earth’s pull reaches far beyond the sky. The Moon is falling toward Earth too. It stays up the same way a satellite does — by moving sideways while it falls.',
     question: 'drop', scene: 'drop' },
   { id: 'throw', title: 'Throw it sideways',
-    copy: 'Now throw sideways instead of dropping. The ball still falls the whole time — but it travels while it falls. Try Gentle and Strong and watch where each lands.',
+    copy: 'Throw sideways instead. The ball still falls the whole time, but it travels while falling. Try Gentle and Strong.',
     more: 'The sideways speed and the falling are separate. Gravity keeps pulling down at the same rate no matter how fast the ball moves sideways.',
     question: 'throw', scene: 'throw', throws: ['gentle', 'strong'] },
   { id: 'miss', title: 'Throw hard enough to miss the ground',
-    copy: 'Earth is round, so its surface curves away. Throw at about 8 kilometres every second and the ground curves away just as fast as the ball falls. It falls all the way around — that is an orbit. Try the Mightiest throw.',
-    more: 'We are pretending there is no air to slow the ball, and no mountains in the way. Real rockets first climb above the air, then turn sideways to reach orbit speed. Throw harder still — past about 11 kilometres a second — and the ball escapes Earth forever. This app keeps the three honest throws.',
+    copy: 'Earth is round, so the ground curves away. Throw about 8 kilometres a second and the ball falls all the way around. Try Mightiest.',
+    more: 'Thrown at about 8 kilometres every second, the ball falls as fast as the ground curves away beneath it, so it keeps missing — that is an orbit. We are pretending there is no air to slow the ball, and no mountains in the way. Real rockets first climb above the air, then turn sideways to reach orbit speed. Throw harder still — past about 11 kilometres a second — and the ball escapes Earth forever. This app keeps the three honest throws.',
     question: 'miss', scene: 'throw', throws: ['gentle', 'strong', 'mightiest'] },
   { id: 'float', title: 'There IS gravity up here',
-    copy: 'This satellite circles close above Earth. At its height, Earth’s pull is about nine-tenths as strong as on the ground — tap Show Earth’s pull. So why do astronauts float inside their station? They and the station are falling around Earth together.',
-    more: 'Falling together is why they float: nothing presses them to the floor, the same way riders float in a falling lift. “Weightless” never means “no gravity”.',
+    copy: 'Up here, Earth’s pull is nearly as strong as on the ground. Tap Show Earth’s pull. So why do astronauts float?',
+    more: 'This satellite circles close above Earth, where the pull is about nine-tenths of the pull on the ground. Astronauts float because they and their station are falling around Earth together: nothing presses them to the floor, the same way riders float in a falling lift. “Weightless” never means “no gravity”.',
     question: 'float', scene: 'orbitLow' },
   { id: 'compare', title: 'Close is quick, far is slow',
-    copy: 'The near satellite needs only about an hour and a half per circle. The far one needs a whole day. Play one full day and count their circles.',
+    copy: 'The near satellite circles in an hour and a half. The far one needs a whole day. Play one day and count.',
     more: 'Farther out, Earth’s pull is weaker, so a slower sideways speed is enough to keep missing the ground. Slow and far means each circle takes longer.',
     scene: 'compare' },
   { id: 'spin', title: 'Meanwhile, Earth spins',
-    copy: 'Earth turns once a day. Watch the home flag go around, and the small panel: you are riding along with the spinning Earth, watching where the satellite passes overhead.',
-    more: 'The panel shows the spot on the ground directly under the satellite. The near satellite sweeps over place after place, circling about 16 times while Earth spins once.',
+    copy: 'Earth turns once a day. Watch the home flag — and the small panel that rides along with the spin.',
+    more: 'The panel shows the spot on the ground directly under the satellite, riding along with the spinning Earth. The near satellite sweeps over place after place, circling about 16 times while Earth spins once.',
     scene: 'spin', ground: true },
   { id: 'match', title: 'The orbit that keeps up',
-    copy: 'Far enough out, one circle takes exactly one day — the same as one spin. High above the equator, going the way Earth turns, the satellite hangs over one spot. That is a geostationary orbit, a special geosynchronous one.',
-    more: 'Geosynchronous means its period matches Earth’s spin. Geostationary is the special case: circular, above the equator, going the way Earth turns — so it stays parked over one spot. That is why TV dish antennas can point at one place in the sky.',
+    copy: 'Far enough out, one circle takes exactly one day. High above the equator, going Earth’s way, it hangs over one spot.',
+    more: 'That is a geostationary orbit, a special geosynchronous one. Geosynchronous means its period matches Earth’s spin. Geostationary is the special case: circular, above the equator, going the way Earth turns — so it stays parked over one spot. That is why TV dish antennas can point at one place in the sky.',
     question: 'match', scene: 'match', ground: true },
   { id: 'tilt', title: 'Same day, different path',
-    copy: 'Tilt that one-day orbit and watch the small panel for a full day. The satellite still circles once a day — but it drifts north and south, drawing a loop. Same period, not the same place.',
+    copy: 'Tilt that one-day orbit. It still circles once a day, but drifts north and south. Same day, not the same place.',
     more: 'The loop the ground point draws over one day is what ground trackers really see from a tilted one-day satellite. A tilted one-day orbit is geosynchronous, but not geostationary.',
     scene: 'tilt', ground: true },
   { id: 'transfer', title: 'One last puzzle', scene: 'transfer', ground: true, transfer: true },
@@ -192,7 +192,7 @@ function renderGuide() {
   $('step-title').textContent = st.title;
   const isTransfer = !!st.transfer;
   $('step-copy').textContent = isTransfer
-    ? 'You have seen a flat one-day orbit and a tilted one. Here is a new tilt you have not watched before. Look, then answer.'
+    ? 'Here is a new tilt you have not watched before. Look, then answer.'
     : st.copy;
   // answers
   const box = $('answers');
@@ -229,10 +229,6 @@ function renderGuide() {
   }
   if (isTransfer && journey.taughtBack) fb += `\n\n${teachback.prompt} ${teachback.reveal}`;
   $('feedback').textContent = fb;
-  // read more
-  const rm = $('read-more');
-  if (st.more && !isTransfer) { rm.hidden = false; $('more-copy').textContent = st.more; }
-  else rm.hidden = true;
   // progress
   const prog = $('progress');
   prog.innerHTML = '';
@@ -247,14 +243,9 @@ function renderGuide() {
   if (journey.step === 0) next.innerHTML = 'Start learning <span aria-hidden="true">→</span>';
   else if (journey.step === STEP_COUNT - 1) next.innerHTML = 'Begin again <span aria-hidden="true">↺</span>';
   else next.innerHTML = 'Next <span aria-hidden="true">→</span>';
+  if (fb) $('feedback').scrollIntoView({ block: 'nearest' });
   $('step-title').focus({ preventScroll: true });
-  updateScrollHint();
 }
-function updateScrollHint() {
-  const c = $('guide-content');
-  $('scroll-hint').hidden = !(c.scrollHeight > c.clientHeight + 24 && c.scrollTop + c.clientHeight < c.scrollHeight - 24);
-}
-$('guide-content').addEventListener('scroll', updateScrollHint);
 
 function go(type) {
   journey = reduceJourney(journey, { type });
@@ -380,10 +371,16 @@ function drawEarthDisk(ctx, cx, cy, r, seed, withHome, t) {
   ctx.restore();
 }
 function drawTime(ctx, lines) {
+  // caption chip: text always sits on paper, never on top of the art
   ctx.save();
-  ctx.globalAlpha = 0.92;
-  lines.forEach((s, i) => inkText(ctx, s, 16, 26 + i * 20, 14));
+  ctx.font = '600 13px system-ui, sans-serif';
+  const wmax = Math.max(...lines.map((s) => ctx.measureText(s).width));
+  const cw = Math.min(wmax + 22, SW - 16), ch = 13 + lines.length * 19;
+  ctx.globalAlpha = 0.96;
+  ctx.fillStyle = palette.paper; ctx.strokeStyle = palette.ink; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.roundRect(8, 8, cw, ch, 10); ctx.fill(); ctx.stroke();
   ctx.restore();
+  lines.forEach((s, i) => inkText(ctx, s, 19, 27 + i * 19, 13));
 }
 
 /* ---------- drawing: scenes ---------- */
@@ -466,8 +463,8 @@ function drawDrop() {
 
 function drawThrow() {
   const availH = SH - 120; // leave the dock its own space
-  const cx = SW / 2, cy = availH / 2 + 8;
-  const k = (Math.min(SW, availH) * 0.48) / (EARTH_RADIUS * 1.06);
+  const cx = SW / 2, cy = availH / 2 + 18;
+  const k = (Math.min(SW, availH) * 0.42) / (EARTH_RADIUS * 1.06);
   const re = EARTH_RADIUS * k;
   drawEarthDisk(sctx, cx, cy, re, 3, false, 0);
   // pretend mountain at the top
@@ -475,15 +472,18 @@ function drawThrow() {
   sctx.strokeStyle = palette.ink; sctx.lineWidth = 2;
   inkLine(sctx, mx - 10, cy - re + 3, mx, my, 31, 0.8);
   inkLine(sctx, mx, my, mx + 10, cy - re + 3, 32, 0.8);
-  sctx.save(); sctx.font = '600 12px system-ui, sans-serif';
-  const mLabel = 'a pretend 400 km mountain, above the air';
-  const mw = sctx.measureText(mLabel).width;
+  // mountain caption: clear of the art, top right
+  sctx.save();
+  sctx.font = '600 11px system-ui, sans-serif';
+  sctx.fillStyle = palette.ink; sctx.textAlign = 'right';
+  sctx.fillText('a pretend 400 km', SW - 14, 18);
+  sctx.fillText('mountain, above the air', SW - 14, 32);
   sctx.restore();
-  inkText(sctx, mLabel, Math.min(Math.max(mx + 14, 8), SW - mw - 8), Math.max(my - 8, 58), 12);
+  inkLine(sctx, mx + 12, my + 2, SW - 118, 24, 33, 0.5);
   inkText(sctx, 'not to scale', 16, availH + 8, 12);
   const run = scene.run;
   if (!run) {
-    inkText(sctx, 'Pick a throw strength.', 16, 26, 14);
+    drawTime(sctx, ['Pick a throw strength.']);
     return;
   }
   // reveal path up to idx
@@ -504,7 +504,7 @@ function drawThrow() {
   const span = run.samples.reduce((m, s) => Math.max(m, Math.abs(Math.atan2(s.position[0], s.position[1]))), 0);
   if (span < 0.3) {
     const bw = Math.min(SW * 0.52, 240), bh = bw * 0.62;
-    const bx = 14, by2 = 34;
+    const bx = 14, by2 = 52;
     sctx.save();
     sctx.fillStyle = palette.paper; sctx.strokeStyle = palette.ink; sctx.lineWidth = 1.6;
     sctx.beginPath(); sctx.roundRect(bx, by2, bw, bh, 14); sctx.fill(); sctx.stroke();
@@ -535,18 +535,20 @@ function drawThrow() {
     }
     sctx.stroke();
     inkText(sctx, 'zoomed in, same throw', bx + 10, by2 + 15, 11);
-    sctx.restore();
   }
   const finished = upto >= run.samples.length - 1;
   let msg;
-  if (!finished) msg = `${(THROWS[scene.choice].speed / 1000).toFixed(1)} km every second…  ${fmtDur(cur.time)}`;
-  else if (run.end === 'landed') {
+  if (!finished) {
+    msg = `${(THROWS[scene.choice].speed / 1000).toFixed(1)} km a second · ${fmtDur(cur.time)}`;
+    drawTime(sctx, [msg]);
+  } else if (run.end === 'landed') {
     const ang = Math.atan2(run.final.position[0], run.final.position[1]);
-    msg = `Landed about ${fmtKm(EARTH_RADIUS * Math.abs(ang))} away, after ${fmtDur(run.final.time)}.`;
     inkLine(sctx, bx - 14, by - 2, bx - 22, by - 12, 41, 0.6);
     inkLine(sctx, bx + 14, by - 2, bx + 22, by - 12, 42, 0.6);
-  } else msg = 'It came all the way around — still falling, still missing the ground.';
-  drawTime(sctx, [msg]);
+    drawTime(sctx, [`Landed about ${fmtKm(EARTH_RADIUS * Math.abs(ang))} away,`, `after ${fmtDur(run.final.time)}.`]);
+  } else {
+    drawTime(sctx, ['It came all the way around —', 'still falling, still missing.']);
+  }
 }
 
 function drawOrbitSet(st) {
@@ -620,7 +622,7 @@ function drawGround() {
   gctx.fillStyle = palette.sky;
   gctx.beginPath(); gctx.arc(cx + R, cy, 4.5, 0, 7); gctx.fill();
   gctx.strokeStyle = palette.ink; gctx.lineWidth = 1.2; gctx.stroke();
-  inkText(gctx, 'home', cx + R - 12, cy - 10, 11);
+  inkText(gctx, 'home', cx + R - 34, cy + 5, 11);
   // trail + current ground point
   if (scene.trail.length > 1) {
     gctx.strokeStyle = palette.coral; gctx.lineWidth = 1.6; gctx.globalAlpha = 0.8;
@@ -641,8 +643,8 @@ function drawGround() {
   }
   if (scene.trail.length <= 1 && scene.t === 0) {
     gctx.save(); gctx.globalAlpha = 0.75;
-    inkText(gctx, 'step or play to', cx - 52, cy - 6, 11);
-    inkText(gctx, 'watch a day pass', cx - 56, cy + 8, 11);
+    inkText(gctx, 'press Play', cx - 30, cy - 4, 11);
+    inkText(gctx, 'to watch a day pass', cx - 52, cy + 12, 11);
     gctx.restore();
   } else if (scene.trail.length > 1) {
     const lats = scene.trail.map((p) => p.lat), lons = scene.trail.map((p) => p.lon);
@@ -735,7 +737,12 @@ function enterScene() {
 }
 
 /* ---------- about dialog ---------- */
-$('about-open').addEventListener('click', () => $('about').showModal());
+$('about-open').addEventListener('click', () => {
+  const more = STEPS[journey.step].more;
+  $('about-step').hidden = !more;
+  if (more) $('about-step-more').textContent = more;
+  $('about').showModal();
+});
 $('about-close').addEventListener('click', () => $('about').close());
 
 /* ---------- test evidence ---------- */
