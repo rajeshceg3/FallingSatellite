@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>The Falling Satellite</title>
+    <meta
+      name="description"
+      content="A hand-inked journey about orbits for ages 7 to 10: why a satellite is always falling, how it keeps missing the ground, and the special one-day orbit that keeps up with Earth's spin."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='9' fill='%23ffdbac' stroke='%233d2f26' stroke-width='2'/%3E%3Cellipse cx='16' cy='16' rx='14' ry='5' fill='none' stroke='%23e8735a' stroke-width='1.6'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <a href="./" aria-label="The Falling Satellite home">The Falling Satellite<span aria-hidden="true">✦</span></a>
+      <div class="header-tools">
+        <button id="theme" class="icon" aria-label="Use dark theme" aria-pressed="false" title="Change theme">☾</button>
+        <button id="about-open" class="icon" aria-label="About this model" title="About this model">ℹ</button>
+      </div>
+    </header>
+    <main id="workshop">
+      <section id="model-stage" aria-label="Space scene">
+        <canvas id="scene" aria-label=""></canvas>
+        <canvas id="ground" aria-label="Ground view: riding along with the spinning Earth" hidden></canvas>
+        <div id="scene-dock" aria-label="Scene controls"></div>
+      </section>
+      <section id="guide" aria-label="Guided journey">
+        <div id="guide-content" aria-live="polite">
+          <h1 id="step-title" tabindex="-1"></h1>
+          <p id="step-copy"></p>
+          <div id="answers"></div>
+          <p id="feedback"></p>
+          <details id="read-more" hidden>
+            <summary>Read a little more</summary>
+            <p id="more-copy"></p>
+          </details>
+        </div>
+        <span id="scroll-hint" hidden>Scroll for more ↓</span>
+        <div id="journey-controls">
+          <div id="progress" aria-label="Journey progress"></div>
+          <div class="actions">
+            <button id="back" class="icon" aria-label="Previous step" title="Previous step">←</button>
+            <button id="next">Start learning <span aria-hidden="true">→</span></button>
+            <button id="reset" class="icon" aria-label="Restart journey" title="Restart journey">↺</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <dialog id="about">
+      <h2>About this model</h2>
+      <p>
+        Every path in this app comes from one gravity rule: Earth pulls things
+        toward its centre, weaker with distance. The thrown-ball scenes integrate
+        that rule directly. The satellite scenes use perfect circles worked out
+        from the same rule, with Earth's real size and real spin.
+      </p>
+      <p>
+        Left out on purpose: air, mountains, the Moon and Sun, and Earth's
+        slight flattening. The mightiest throw pretends there is no air to slow
+        the ball. Drawings are not to scale; the speeds and times are real.
+        A one-day orbit means one Earth spin (about 23 hours 56 minutes), not
+        exactly the clock day.
+      </p>
+      <p>
+        Sources: ESA's orbit guides for kids and for spacecraft, NASA's space
+        flight basics, and the IERS standards for Earth's numbers. Links are in
+        the project readme.
+      </p>
+      <button id="about-close">Back to the journey</button>
+    </dialog>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

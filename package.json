@@ -1,0 +1,14 @@
+{
+  "name": "falling-satellite",
+  "version": "1.0.0",
+  "description": "A hand-inked journey about orbits for ages 7 to 10: falling around Earth, geosynchronous and geostationary orbits.",
+  "type": "module",
+  "scripts": {
+    "test": "node --check main.js && node --test tests/*.test.mjs",
+    "test:browser": "node tests/browser.cjs"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "playwright": "^1.58.2"
+  }
+}
