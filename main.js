@@ -471,15 +471,15 @@ function drawThrow() {
   const re = EARTH_RADIUS * k;
   drawEarthDisk(sctx, cx, cy, re, 3, false, 0);
   // pretend mountain at the top
-  const mx = cx, my = cy - re;
+  const mx = cx, my = cy - re - (LAUNCH_ALT * k);
   sctx.strokeStyle = palette.ink; sctx.lineWidth = 2;
-  inkLine(sctx, mx - 12, my + 2, mx, my - 13, 31, 0.8);
-  inkLine(sctx, mx, my - 13, mx + 12, my + 2, 32, 0.8);
+  inkLine(sctx, mx - 10, cy - re + 3, mx, my, 31, 0.8);
+  inkLine(sctx, mx, my, mx + 10, cy - re + 3, 32, 0.8);
   sctx.save(); sctx.font = '600 12px system-ui, sans-serif';
   const mLabel = 'a pretend 400 km mountain, above the air';
   const mw = sctx.measureText(mLabel).width;
   sctx.restore();
-  inkText(sctx, mLabel, Math.min(mx + 16, SW - mw - 12), Math.max(my - 12, 14), 12);
+  inkText(sctx, mLabel, Math.min(Math.max(mx + 14, 8), SW - mw - 8), Math.max(my - 8, 34), 12);
   inkText(sctx, 'not to scale', 16, availH + 8, 12);
   const run = scene.run;
   if (!run) {
@@ -534,7 +534,7 @@ function drawThrow() {
       i ? sctx.lineTo(px, py) : sctx.moveTo(px, py);
     }
     sctx.stroke();
-    inkText(sctx, 'zoomed in — same throw, same numbers', bx + 10, by2 + 15, 11);
+    inkText(sctx, 'zoomed in, same throw', bx + 10, by2 + 15, 11);
     sctx.restore();
   }
   const finished = upto >= run.samples.length - 1;
