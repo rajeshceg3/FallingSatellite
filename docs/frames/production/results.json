@@ -190,6 +190,11 @@
     "extra": ""
   },
   {
+    "name": "gate: header controls fit viewport (320)",
+    "ok": true,
+    "extra": ""
+  },
+  {
     "name": "gate: throw label clear of status (320)",
     "ok": true,
     "extra": "{\"l\":{\"x0\":16,\"y0\":167,\"x1\":278.947265625,\"y1\":181.3},\"s\":{\"x0\":16,\"y0\":146,\"x1\":289.134765625,\"y1\":161.6}}"
@@ -215,6 +220,11 @@
     "extra": ""
   },
   {
+    "name": "gate: header controls fit viewport (landscape)",
+    "ok": true,
+    "extra": ""
+  },
+  {
     "name": "gate: throw label clear of status (landscape)",
     "ok": true,
     "extra": "{\"l\":{\"x0\":16,\"y0\":162,\"x1\":302.8515625,\"y1\":177.6},\"s\":{\"x0\":16,\"y0\":140,\"x1\":334.6572265625,\"y1\":158.2}}"
@@ -236,6 +246,11 @@
   },
   {
     "name": "no page errors (landscape)",
+    "ok": true,
+    "extra": ""
+  },
+  {
+    "name": "gate: header controls fit viewport (desktop)",
     "ok": true,
     "extra": ""
   },
