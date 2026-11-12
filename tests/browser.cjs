@@ -155,7 +155,7 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await p.screenshot({ path: `${out}/11-match-ground-390.png` });
     {
       const { layout, inset } = await ev(p);
-      note('gate: ground inset clear of orbit art (match)', noOverlap(layout.orbitPath, inset));
+      note('gate: ground inset clear of orbit art (match)', noOverlap(layout.orbitPath, inset), JSON.stringify({ o: layout.orbitPath, i: inset }));
     }
 
     await p.locator('#next').click(); // tilt
@@ -170,7 +170,7 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await p.screenshot({ path: `${out}/13a-transfer-entry-390.png` });
     {
       const { layout, inset } = await ev(p);
-      note('gate: ground inset clear of orbit art (transfer)', noOverlap(layout.orbitPath, inset));
+      note('gate: ground inset clear of orbit art (transfer)', noOverlap(layout.orbitPath, inset), JSON.stringify({ o: layout.orbitPath, i: inset }));
     }
     await p.locator('#scene-dock button', { hasText: '+1 h' }).first().click();
     e = await ev(p);
@@ -222,7 +222,9 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await p.screenshot({ path: `${out}/30-throw-${tag}.png` });
     {
       const { layout } = await ev(p);
-      note(`gate: throw texts and bubble separated (${tag})`, noOverlap(layout.mountainLabel, layout.status) && noOverlap(layout.mountainLabel, layout.zoomBubble) && noOverlap(layout.status, layout.caption));
+      note(`gate: throw label clear of status (${tag})`, noOverlap(layout.mountainLabel, layout.status), JSON.stringify({ l: layout.mountainLabel, s: layout.status }));
+      note(`gate: throw label clear of bubble (${tag})`, noOverlap(layout.mountainLabel, layout.zoomBubble), JSON.stringify({ l: layout.mountainLabel, b: layout.zoomBubble }));
+      note(`gate: throw status clear of caption (${tag})`, noOverlap(layout.status, layout.caption), JSON.stringify({ s: layout.status, c: layout.caption }));
     }
     await completeStep(p); // strong + answer
     for (let i = 0; i < 5; i++) { await p.locator('#next').click(); await completeStep(p); }

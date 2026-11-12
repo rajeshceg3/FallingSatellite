@@ -561,7 +561,7 @@ function drawDrop() {
 }
 
 function drawThrow() {
-  const availH = SH - 120; // leave the dock its own space
+  const availH = SH - 170; // dock plus three caption rows get their own space
   const cx = SW / 2, cy = availH / 2 + 8;
   const k = (Math.min(SW, availH) * 0.48) / (EARTH_RADIUS * 1.06);
   const re = EARTH_RADIUS * k;
@@ -571,15 +571,10 @@ function drawThrow() {
   sctx.strokeStyle = palette.ink; sctx.lineWidth = 2;
   inkLine(sctx, mx - 10, cy - re + 3, mx, my, 31, 0.8);
   inkLine(sctx, mx, my, mx + 10, cy - re + 3, 32, 0.8);
-  sctx.save(); sctx.font = '600 12px system-ui, sans-serif';
   const mLabel = 'a pretend 400 km mountain, above the air';
-  const mw = sctx.measureText(mLabel).width;
-  sctx.restore();
-  sctx.save(); sctx.font = '600 12px system-ui, sans-serif'; sctx.textAlign = 'center'; sctx.fillStyle = palette.ink;
-  const lx = Math.min(Math.max(mx, mw / 2 + 8), SW - mw / 2 - 8), ly = Math.max(my - 8, 16);
-  sctx.fillText(mLabel, lx, ly);
-  sctx.restore();
-  noteText('mountainLabel', mLabel, lx, ly, 12, 'center');
+  const lsize = SW < 330 ? 11 : 12;
+  inkText(sctx, mLabel, 16, availH + 48, lsize);
+  noteText('mountainLabel', mLabel, 16, availH + 48, lsize);
   inkText(sctx, 'not to scale', 16, availH + 8, 12);
   noteText('caption', 'not to scale', 16, availH + 8, 12);
   const run = scene.run;
@@ -605,7 +600,7 @@ function drawThrow() {
   // zoom bubble: the same real throw, magnified, when the arc is tiny at world scale
   const span = run.samples.reduce((m, s) => Math.max(m, Math.abs(Math.atan2(s.position[0], s.position[1]))), 0);
   if (span < 0.3) {
-    const bw = Math.min(SW * 0.52, 240), bh = bw * 0.62;
+    const bw = Math.min(SW * 0.52, 240, (availH - 38 - 8) / 0.62), bh = bw * 0.62;
     const bx = 14, by2 = 38;
     noteRect('zoomBubble', bx, by2, bx + bw, by2 + bh);
     sctx.save();
@@ -637,7 +632,7 @@ function drawThrow() {
       i ? sctx.lineTo(px, py) : sctx.moveTo(px, py);
     }
     sctx.stroke();
-    inkText(sctx, 'zoomed in, same throw', bx + 10, by2 + 15, 11);
+    inkText(sctx, bw < 200 ? 'zoomed in' : 'zoomed in, same throw', bx + 10, by2 + 15, bw < 200 ? 10 : 11);
     sctx.restore();
   }
   const finished = upto >= run.samples.length - 1;
@@ -649,15 +644,16 @@ function drawThrow() {
     inkLine(sctx, bx - 14, by - 2, bx - 22, by - 12, 41, 0.6);
     inkLine(sctx, bx + 14, by - 2, bx + 22, by - 12, 42, 0.6);
   } else msg = 'It came all the way around — still falling, still missing the ground.';
-  inkText(sctx, msg, 16, availH + 28, 14);
-  noteText('status', msg, 16, availH + 28, 14);
+  const stSize = SW < 330 ? 12 : 14;
+  inkText(sctx, msg, 16, availH + 28, stSize);
+  noteText('status', msg, 16, availH + 28, stSize);
 }
 
 function drawOrbitSet(st) {
   const sid = scene.id;
   const availH = SH - 92;
-  const gPad = st.ground ? 0.82 : 1; // ground steps make room for the inset
-  const cx = st.ground ? SW * 0.47 : SW / 2, cy = availH / 2 + 6;
+  const gPad = st.ground ? (SW < 340 ? 0.62 : 0.82) : 1; // ground steps make room for the inset
+  const cx = st.ground ? SW * 0.45 : SW / 2, cy = availH / 2 + 6;
   const fitR = sid === 'orbitLow' || sid === 'spin' ? EARTH_RADIUS * 2.6 : MATCHED_RADIUS * 1.12;
   const k = (Math.min(SW, availH) * 0.47 * gPad) / fitR;
   drawEarthDisk(sctx, cx, cy, EARTH_RADIUS * k, 5, sid === 'spin' || sid === 'match', scene.t);
@@ -728,6 +724,7 @@ function drawGround() {
   gctx.beginPath(); gctx.arc(cx + R, cy, 4.5, 0, 7); gctx.fill();
   gctx.strokeStyle = palette.ink; gctx.lineWidth = 1.2; gctx.stroke();
   inkText(gctx, 'home', cx + R - 34, cy + 5, 11);
+  const tiny = w < 80;
   // trail + current ground point
   if (scene.trail.length > 1) {
     gctx.strokeStyle = palette.coral; gctx.lineWidth = 1.6; gctx.globalAlpha = 0.8;
@@ -746,7 +743,7 @@ function drawGround() {
     gctx.fillStyle = palette.coral;
     gctx.beginPath(); gctx.arc(x, y, 4, 0, 7); gctx.fill();
   }
-  if (scene.trail.length <= 1 && scene.t === 0) {
+  if (scene.trail.length <= 1 && scene.t === 0 && !tiny) {
     gctx.save(); gctx.globalAlpha = 0.75;
     inkText(gctx, 'press Play', cx - 30, cy - 4, 11);
     inkText(gctx, 'to watch a day pass', cx - 52, cy + 12, 11);
@@ -754,13 +751,13 @@ function drawGround() {
   } else if (scene.trail.length > 1) {
     const lats = scene.trail.map((p) => p.lat), lons = scene.trail.map((p) => p.lon);
     const spread = Math.max(...lats) - Math.min(...lats) + Math.max(...lons) - Math.min(...lons);
-    if (spread < 0.002 && scene.t > 3600) {
+    if (spread < 0.002 && scene.t > 3600 && !tiny) {
       gctx.save(); gctx.globalAlpha = 0.85;
       inkText(gctx, 'still over home', cx - 46, cy + R * 0.55, 11.5, palette.coral);
       gctx.restore();
     }
   }
-  inkText(gctx, 'riding with Earth', 10, w - 12, 11);
+  if (!tiny) inkText(gctx, 'riding with Earth', 5, w - 8, 9);
 }
 
 /* ---------- animation: on-demand loop, no idle rendering ----------
