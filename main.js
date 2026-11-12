@@ -425,6 +425,24 @@ function inkText(ctx, str, x, y, size = 14, color) {
   ctx.fillText(str, x, y);
   ctx.restore();
 }
+
+/* layout marks: bounding boxes of drawn text/art, for the no-overlap gate */
+const layoutMarks = {};
+function markReset() { for (const key in layoutMarks) delete layoutMarks[key]; }
+function noteRect(name, x0, y0, x1, y1) {
+  const cur = layoutMarks[name];
+  layoutMarks[name] = cur
+    ? { x0: Math.min(cur.x0, x0), y0: Math.min(cur.y0, y0), x1: Math.max(cur.x1, x1), y1: Math.max(cur.y1, y1) }
+    : { x0, y0, x1, y1 };
+}
+function noteText(name, str, x, y, size, align = 'left') {
+  sctx.save();
+  sctx.font = `600 ${size}px system-ui, sans-serif`;
+  const w = sctx.measureText(str).width;
+  sctx.restore();
+  const x0 = align === 'center' ? x - w / 2 : x;
+  noteRect(name, x0, y - size, x0 + w, y + size * 0.3);
+}
 function drawSatellite(ctx, x, y, seed, scale = 1) {
   ctx.save();
   ctx.strokeStyle = palette.ink;
@@ -457,7 +475,7 @@ function drawEarthDisk(ctx, cx, cy, r, seed, withHome, t) {
 function drawTime(ctx, lines) {
   ctx.save();
   ctx.globalAlpha = 0.92;
-  lines.forEach((s, i) => inkText(ctx, s, 16, 26 + i * 20, 14));
+  lines.forEach((s, i) => { inkText(ctx, s, 16, 26 + i * 20, 14); noteText('timeLines', s, 16, 26 + i * 20, 14); });
   ctx.restore();
 }
 
@@ -465,6 +483,7 @@ function drawTime(ctx, lines) {
 function draw() {
   const st = STEPS[journey.step];
   sctx.clearRect(0, 0, SW, SH);
+  markReset();
   if (!scene) return;
   sceneCanvas.setAttribute('aria-label', sceneLabel(st));
   const id = scene.id;
@@ -557,12 +576,16 @@ function drawThrow() {
   const mw = sctx.measureText(mLabel).width;
   sctx.restore();
   sctx.save(); sctx.font = '600 12px system-ui, sans-serif'; sctx.textAlign = 'center'; sctx.fillStyle = palette.ink;
-  sctx.fillText(mLabel, Math.min(Math.max(mx, mw / 2 + 8), SW - mw / 2 - 8), Math.max(my - 10, 16));
+  const lx = Math.min(Math.max(mx, mw / 2 + 8), SW - mw / 2 - 8), ly = Math.max(my - 8, 16);
+  sctx.fillText(mLabel, lx, ly);
   sctx.restore();
+  noteText('mountainLabel', mLabel, lx, ly, 12, 'center');
   inkText(sctx, 'not to scale', 16, availH + 8, 12);
+  noteText('caption', 'not to scale', 16, availH + 8, 12);
   const run = scene.run;
   if (!run) {
-    inkText(sctx, 'Pick a throw strength.', 16, 26, 14);
+    inkText(sctx, 'Pick a throw strength.', 16, availH + 28, 14);
+    noteText('status', 'Pick a throw strength.', 16, availH + 28, 14);
     return;
   }
   // reveal path up to idx
@@ -583,7 +606,8 @@ function drawThrow() {
   const span = run.samples.reduce((m, s) => Math.max(m, Math.abs(Math.atan2(s.position[0], s.position[1]))), 0);
   if (span < 0.3) {
     const bw = Math.min(SW * 0.52, 240), bh = bw * 0.62;
-    const bx = 14, by2 = 34;
+    const bx = 14, by2 = 38;
+    noteRect('zoomBubble', bx, by2, bx + bw, by2 + bh);
     sctx.save();
     sctx.fillStyle = palette.paper; sctx.strokeStyle = palette.ink; sctx.lineWidth = 1.6;
     sctx.beginPath(); sctx.roundRect(bx, by2, bw, bh, 14); sctx.fill(); sctx.stroke();
@@ -625,15 +649,17 @@ function drawThrow() {
     inkLine(sctx, bx - 14, by - 2, bx - 22, by - 12, 41, 0.6);
     inkLine(sctx, bx + 14, by - 2, bx + 22, by - 12, 42, 0.6);
   } else msg = 'It came all the way around — still falling, still missing the ground.';
-  drawTime(sctx, [msg]);
+  inkText(sctx, msg, 16, availH + 28, 14);
+  noteText('status', msg, 16, availH + 28, 14);
 }
 
 function drawOrbitSet(st) {
   const sid = scene.id;
   const availH = SH - 92;
-  const cx = SW / 2, cy = availH / 2 + 6;
+  const gPad = st.ground ? 0.82 : 1; // ground steps make room for the inset
+  const cx = st.ground ? SW * 0.47 : SW / 2, cy = availH / 2 + 6;
   const fitR = sid === 'orbitLow' || sid === 'spin' ? EARTH_RADIUS * 2.6 : MATCHED_RADIUS * 1.12;
-  const k = (Math.min(SW, availH) * 0.47) / fitR;
+  const k = (Math.min(SW, availH) * 0.47 * gPad) / fitR;
   drawEarthDisk(sctx, cx, cy, EARTH_RADIUS * k, 5, sid === 'spin' || sid === 'match', scene.t);
   const drawOne = (o, color, seed, label) => {
     sctx.strokeStyle = palette.ink; sctx.globalAlpha = 0.5; sctx.lineWidth = 1.4;
@@ -641,11 +667,13 @@ function drawOrbitSet(st) {
     const N = 110;
     for (let i = 0; i <= N; i++) {
       const p = project(at(o, (i / N) * o.period).position, k, cx, cy);
+      noteRect('orbitPath', p[0], p[1], p[0], p[1]);
       i ? sctx.lineTo(...p) : sctx.moveTo(...p);
     }
     sctx.stroke(); sctx.globalAlpha = 1;
     const p = project(at(o, scene.t % o.period).position, k, cx, cy);
     drawSatellite(sctx, p[0], p[1], seed, 1);
+    noteRect('orbitPath', p[0] - 8, p[1] - 8, p[0] + 8, p[1] + 8);
     return p;
   };
   if (sid === 'compare') {
@@ -850,6 +878,12 @@ export function journeyEvidence() {
     dockLocked: $('scene-dock').classList.contains('locked'),
     transferChoice: journey.transferChoice,
     feedback: $('feedback').textContent,
+    layout: { ...layoutMarks },
+    inset: (() => {
+      if (groundCanvas.hidden) return null;
+      const a = sceneCanvas.getBoundingClientRect(), b = groundCanvas.getBoundingClientRect();
+      return { x0: b.left - a.left, y0: b.top - a.top, x1: b.right - a.left, y1: b.bottom - a.top };
+    })(),
     sceneT: scene ? scene.t : null,
     trail: scene ? scene.trail.length : 0,
     nextDisabled: $('next').disabled,

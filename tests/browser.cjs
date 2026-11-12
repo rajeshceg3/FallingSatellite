@@ -24,6 +24,8 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     return p;
   }
   const ev = (p) => p.evaluate(async () => (await import('./main.js')).journeyEvidence());
+  const overlaps = (a, b, gap = 0) => !!a && !!b && a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < b.y1 + gap && b.y0 < a.y1 + gap;
+  const noOverlap = (a, b, gap = 2) => !overlaps(a, b, gap);
   // complete the current step: act on the picture first, then answer, so Next unlocks
   async function completeStep(p) {
     let e = await ev(p);
@@ -98,6 +100,12 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await p.locator('#scene-dock button', { hasText: 'Mightiest' }).click();
     await p.waitForFunction(async () => (await import('./main.js')).journeyEvidence().zone === 'question', { timeout: 30000 });
     await p.screenshot({ path: `${out}/07-mightiest-orbit-390.png` });
+    {
+      const { layout } = await ev(p);
+      note('gate: mountain label clear of status line', noOverlap(layout.mountainLabel, layout.status));
+      note('gate: mountain label clear of zoom bubble', noOverlap(layout.mountainLabel, layout.zoomBubble));
+      note('gate: status line clear of caption', noOverlap(layout.status, layout.caption));
+    }
     // answer the bridge question
     await p.locator('#answers button').first().click();
     e = await ev(p);
@@ -145,6 +153,10 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     note('match question answered', 'match' in e.answers);
     for (let i = 0; i < 7; i++) await p.locator('#scene-dock button', { hasText: '+1 h' }).click();
     await p.screenshot({ path: `${out}/11-match-ground-390.png` });
+    {
+      const { layout, inset } = await ev(p);
+      note('gate: ground inset clear of orbit art (match)', noOverlap(layout.orbitPath, inset));
+    }
 
     await p.locator('#next').click(); // tilt
     for (let i = 0; i < 24; i++) await p.locator('#scene-dock button', { hasText: '+1 h' }).click();
@@ -156,6 +168,10 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     e = await ev(p);
     note('gate: transfer locks the question until you look', e.zone === 'scene' && e.answersLocked && e.nextDisabled && e.cue === 'scene');
     await p.screenshot({ path: `${out}/13a-transfer-entry-390.png` });
+    {
+      const { layout, inset } = await ev(p);
+      note('gate: ground inset clear of orbit art (transfer)', noOverlap(layout.orbitPath, inset));
+    }
     await p.locator('#scene-dock button', { hasText: '+1 h' }).first().click();
     e = await ev(p);
     note('gate: looking unlocks the transfer question', e.zone === 'question' && e.cue === 'question');
@@ -204,10 +220,18 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await p.locator('#next').click(); // throw
     await p.locator('#scene-dock button', { hasText: 'Gentle' }).click();
     await p.screenshot({ path: `${out}/30-throw-${tag}.png` });
+    {
+      const { layout } = await ev(p);
+      note(`gate: throw texts and bubble separated (${tag})`, noOverlap(layout.mountainLabel, layout.status) && noOverlap(layout.mountainLabel, layout.zoomBubble) && noOverlap(layout.status, layout.caption));
+    }
     await completeStep(p); // strong + answer
     for (let i = 0; i < 5; i++) { await p.locator('#next').click(); await completeStep(p); }
     for (let i = 0; i < 6; i++) await p.locator('#scene-dock button', { hasText: '+1 h' }).click();
     await p.screenshot({ path: `${out}/31-match-${tag}.png` });
+    {
+      const { layout, inset } = await ev(p);
+      note(`gate: ground inset clear of orbit art (${tag})`, noOverlap(layout.orbitPath, inset));
+    }
     note(`no page errors (${tag})`, p.errors.length === 0, p.errors.join(' | '));
     await p.close();
   }

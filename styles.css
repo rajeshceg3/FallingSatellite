@@ -103,7 +103,7 @@ button:focus-visible, summary:focus-visible, a:focus-visible {
   position: absolute;
   right: 14px;
   top: 14px;
-  width: clamp(110px, 28%, 180px);
+  width: clamp(96px, 26%, 180px);
   aspect-ratio: 1;
   background: var(--paper);
   border: 2px solid var(--ink);
