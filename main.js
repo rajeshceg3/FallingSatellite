@@ -157,7 +157,7 @@ const THROWS = {
 
 const STEPS = [
   { id: 'cover', title: 'The Falling Satellite',
-    copy: 'Hold a ball high. Let go - it falls. Throw it, and it still falls. How hard would you have to throw so it never comes down? Let’s find out.',
+    copy: 'Maps, weather warnings, TV from far away - they all ride on satellites flying overhead. Nothing holds a satellite up. So why doesn’t it fall down? Start with a ball and find out.',
     scene: 'cover' },
   { id: 'drop', title: 'Everything falls',
     copy: 'Hold a ball high, then tap Drop. Down it comes. Everything falls — even high up where satellites fly.',
