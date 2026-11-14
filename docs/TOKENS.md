@@ -22,3 +22,10 @@ Under every filled disk: 2 low-alpha offset fills of the same color (a 0.10, the
 
 ## Labels
 Message row y~30, caption row cy+78; art never enters either; right-column labels right-aligned by measureText; layout-mark gates assert no overlaps at 320/390/desktop/landscape.
+
+## Learning-flow gate (standing rule, user Nov 14 2026)
+Every learning app, before ship, checked against the Feynman first-principles pattern:
+1. Start from one simple thing (a ball, a shadow, a clock hand) - no jargon, destination never stated up front.
+2. The learner causes it: each step's key event is learner-triggered, never auto-played or narrated.
+3. Name the idea only AFTER they feel it: terms (gravity, orbit, friction) first appear in feedback or Read-more AFTER the action. A question hook up front is fine; the answer never precedes the doing.
+Audit every step's title, copy and question text for pre-told outcomes. The destination is discovered, not announced.
