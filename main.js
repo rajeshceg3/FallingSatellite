@@ -97,6 +97,16 @@ function inkLine(ctx, x0, y0, x1, y1, seed, wobble = 1.6) {
   }
   ctx.stroke();
 }
+/* watercolor depth: two low-alpha offset fills of the same color under the
+   ink stroke. Same palette, no new colors (docs/TOKENS.md). */
+function wash(ctx, cx, cy, r, color) {
+  ctx.save();
+  ctx.globalAlpha = 0.1; ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(cx + 1.5, cy - 1.5, r + 1.5, 0, 7); ctx.fill();
+  ctx.globalAlpha = 0.055;
+  ctx.beginPath(); ctx.arc(cx - 1, cy + 2, Math.max(1, r - 1), 0, 7); ctx.fill();
+  ctx.restore();
+}
 function inkCircle(ctx, cx, cy, r, seed, wobble = 1.4, fill) {
   ctx.beginPath();
   const n = Math.max(18, Math.round(r / 4));
@@ -231,7 +241,7 @@ let journey = createJourney();
 let scene = null;
 function makeScene(id) {
   const base = { id, playing: false, t: 0, trail: [], pull: false };
-  if (id === 'drop') return { ...base, dropped: false, anim: 0 };
+  if (id === 'drop') return { ...base, dropped: false, anim: 0, pulse: 1 };
   if (id === 'throw') return { ...base, run: null, idx: 0, choice: null, done: '', thrownSet: {} };
   return base;
 }
@@ -355,7 +365,7 @@ function buildDock() {
   if (!scene) return;
   if (scene.id === 'drop') {
     dock.appendChild(dockButton(scene.dropped ? 'Drop again' : 'Drop the ball', () => {
-      scene.dropped = true; scene.anim = reducedMotion ? 1 : 0.0001;
+      scene.dropped = true; scene.anim = reducedMotion ? 1 : 0.0001; scene.pulse = reducedMotion ? 1 : 0;
       if (!reducedMotion) { scene.playing = true; lastWall = null; if (!rafId) rafId = requestAnimationFrame(tick); }
     }));
     finishDock(dock);
@@ -445,6 +455,10 @@ function noteText(name, str, x, y, size, align = 'left') {
 }
 function drawSatellite(ctx, x, y, seed, scale = 1) {
   ctx.save();
+  ctx.globalAlpha = 0.16; ctx.fillStyle = palette.coral;
+  ctx.beginPath(); ctx.arc(x, y, 9 * scale, 0, 7); ctx.fill();
+  ctx.restore();
+  ctx.save();
   ctx.strokeStyle = palette.ink;
   ctx.lineWidth = 1.8;
   inkCircle(ctx, x, y, 6 * scale, seed, 0.9, false);
@@ -459,6 +473,7 @@ function drawEarthDisk(ctx, cx, cy, r, seed, withHome, t) {
   ctx.strokeStyle = palette.ink;
   ctx.fillStyle = palette.clay;
   ctx.lineWidth = 2.2;
+  wash(ctx, cx, cy, r, palette.clay);
   inkCircle(ctx, cx, cy, r, seed, 2.2, true);
   hatch(ctx, cx, cy, r, seed + 40, 6);
   if (withHome) {
@@ -548,10 +563,17 @@ function drawDrop() {
       sctx.beginPath(); sctx.moveTo(cx, holdY); sctx.lineTo(cx, by); sctx.stroke(); sctx.restore();
     }
   }
+  wash(sctx, cx, by, 11, palette.coral);
   sctx.fillStyle = palette.coral; sctx.strokeStyle = palette.ink; sctx.lineWidth = 2;
   sctx.beginPath(); sctx.arc(cx, by, 11, 0, 7); sctx.fill(); sctx.stroke();
   if (scene.dropped && scene.anim >= 1) {
-    // landed thud marks
+    // landed thud marks + one calm pulse ring (skipped under reduced motion)
+    if (scene.pulse < 1) {
+      const pr = 12 + scene.pulse * 22;
+      sctx.save(); sctx.globalAlpha = (1 - scene.pulse) * 0.45;
+      sctx.strokeStyle = palette.ink; sctx.lineWidth = 2 * (1 - scene.pulse) + 0.5;
+      sctx.beginPath(); sctx.arc(cx, gy - 14, pr, 0, 7); sctx.stroke(); sctx.restore();
+    }
     inkLine(sctx, cx - 20, gy - 2, cx - 30, gy - 12, 21, 0.6);
     inkLine(sctx, cx + 20, gy - 2, cx + 30, gy - 12, 22, 0.6);
     inkText(sctx, 'Down it comes. Everything falls.', cx - SW * 0.3, gy + 34, 15);
@@ -583,18 +605,25 @@ function drawThrow() {
     noteText('status', 'Pick a throw strength.', 16, availH + 28, 14);
     return;
   }
-  // reveal path up to idx
+  // reveal path up to idx, older ink fading like a pencil line
   const upto = Math.min(scene.idx, run.samples.length - 1);
-  sctx.strokeStyle = palette.ink; sctx.lineWidth = 2; sctx.globalAlpha = 0.85;
-  sctx.beginPath();
-  for (let i = 0; i <= upto; i++) {
-    const s = run.samples[i];
-    const x = cx + s.position[0] * k, y = cy - s.position[1] * k;
-    i ? sctx.lineTo(x, y) : sctx.moveTo(x, y);
-  }
+  sctx.strokeStyle = palette.ink; sctx.lineWidth = 2;
+  [0.15, 0.35, 0.85].forEach((alpha, pi) => {
+    const a0 = Math.floor((upto * pi) / 3), a1 = Math.max(a0 + 1, Math.floor((upto * (pi + 1)) / 3));
+    sctx.globalAlpha = alpha;
+    sctx.beginPath();
+    for (let i = a0; i <= Math.min(a1, upto); i++) {
+      const s = run.samples[i];
+      const x = cx + s.position[0] * k, y = cy - s.position[1] * k;
+      i === a0 ? sctx.moveTo(x, y) : sctx.lineTo(x, y);
+    }
+    sctx.stroke();
+  });
+  sctx.globalAlpha = 1;
   sctx.stroke(); sctx.globalAlpha = 1;
   const cur = run.samples[upto];
   const bx = cx + cur.position[0] * k, by = cy - cur.position[1] * k;
+  wash(sctx, bx, by, 7, palette.coral);
   sctx.fillStyle = palette.coral; sctx.strokeStyle = palette.ink; sctx.lineWidth = 1.8;
   sctx.beginPath(); sctx.arc(bx, by, 7, 0, 7); sctx.fill(); sctx.stroke();
   // zoom bubble: the same real throw, magnified, when the arc is tiny at world scale
@@ -712,6 +741,7 @@ function drawGround() {
   const w = rect.width, cx = w / 2, cy = w / 2, R = w * 0.4;
   gctx.clearRect(0, 0, w, w);
   gctx.strokeStyle = palette.ink; gctx.fillStyle = palette.paper; gctx.lineWidth = 1.8;
+  wash(gctx, cx, cy, R, palette.clay);
   inkCircle(gctx, cx, cy, R, 61, 1.2, true);
   // latitude rings: 30° and 60° (radius = (90-lat)/90 * R)
   gctx.save(); gctx.globalAlpha = 0.4; gctx.setLineDash([3, 5]); gctx.lineWidth = 1;
@@ -726,15 +756,21 @@ function drawGround() {
   inkText(gctx, 'home', cx + R - 34, cy + 5, 11);
   const tiny = w < 80;
   // trail + current ground point
+  // trail + current ground point, older ink fading
   if (scene.trail.length > 1) {
-    gctx.strokeStyle = palette.coral; gctx.lineWidth = 1.6; gctx.globalAlpha = 0.8;
-    gctx.beginPath();
-    scene.trail.forEach((pt, i) => {
+    gctx.strokeStyle = palette.coral; gctx.lineWidth = 1.6;
+    const pts = scene.trail.map((pt) => {
       const rr = ((Math.PI / 2 - pt.lat) / (Math.PI / 2)) * R;
-      const x = cx + Math.cos(pt.lon) * rr, y = cy - Math.sin(pt.lon) * rr;
-      i ? gctx.lineTo(x, y) : gctx.moveTo(x, y);
+      return [cx + Math.cos(pt.lon) * rr, cy - Math.sin(pt.lon) * rr];
     });
-    gctx.stroke(); gctx.globalAlpha = 1;
+    [0.15, 0.35, 0.8].forEach((alpha, pi) => {
+      const a0 = Math.floor((pts.length * pi) / 3), a1 = Math.max(a0 + 1, Math.floor((pts.length * (pi + 1)) / 3));
+      gctx.globalAlpha = alpha;
+      gctx.beginPath();
+      pts.slice(a0, a1 + 1).forEach(([x, y], i) => (i ? gctx.lineTo(x, y) : gctx.moveTo(x, y)));
+      gctx.stroke();
+    });
+    gctx.globalAlpha = 1;
   }
   const cur = scene.trail[scene.trail.length - 1];
   if (cur) {
@@ -768,7 +804,7 @@ function drawGround() {
 let lastWall = null, rafId = null, snapTimer = null;
 function loopActive() {
   if (!scene || !scene.playing) return false;
-  if (scene.id === 'drop') return scene.dropped && scene.anim < 1;
+  if (scene.id === 'drop') return scene.dropped && (scene.anim < 1 || scene.pulse < 1);
   if (scene.id === 'throw') return !!scene.run && (scene.choice === 'mightiest' || scene.idx < scene.run.samples.length - 1);
   return !!RATE[scene.id];
 }
@@ -780,6 +816,7 @@ function tick(now) {
   lastWall = now;
   if (scene.id === 'drop') {
     if (scene.dropped && scene.anim < 1) scene.anim = Math.min(1, scene.anim + dt / 1.1);
+    if (scene.dropped && scene.anim >= 1 && scene.pulse < 1) scene.pulse = Math.min(1, scene.pulse + dt / 0.45);
   } else if (scene.id === 'throw') {
     if (scene.run) {
       const last = scene.run.samples.length - 1;
