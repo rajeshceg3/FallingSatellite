@@ -157,7 +157,7 @@ const THROWS = {
 
 const STEPS = [
   { id: 'cover', title: 'The Falling Satellite',
-    copy: 'A satellite is always falling toward Earth. It stays up by missing the ground. Let’s see how.',
+    copy: 'Hold a ball high. Let go - it falls. Throw it, and it still falls. How hard would you have to throw so it never comes down? Let’s find out.',
     scene: 'cover' },
   { id: 'drop', title: 'Everything falls',
     copy: 'Hold a ball high, then tap Drop. Down it comes. Everything falls — even high up where satellites fly.',
@@ -168,7 +168,7 @@ const STEPS = [
     more: 'The sideways speed and the falling are separate. Gravity keeps pulling down at the same rate no matter how fast the ball moves sideways.',
     question: 'throw', scene: 'throw', throws: ['gentle', 'strong'], need: ['gentle', 'strong'] },
   { id: 'miss', title: 'Throw hard enough to miss the ground',
-    copy: 'Earth is round, so the ground curves away. Throw about 8 kilometres a second and the ball falls all the way around. Try Mightiest.',
+    copy: 'Earth is round, so the ground curves away. Can a ball fall so far it never lands? Try Mightiest.',
     more: 'Thrown at about 8 kilometres every second, the ball falls as fast as the ground curves away beneath it, so it keeps missing — that is an orbit. We are pretending there is no air to slow the ball, and no mountains in the way. Real rockets first climb above the air, then turn sideways to reach orbit speed. Throw harder still — past about 11 kilometres a second — and the ball escapes Earth forever. This app keeps the three honest throws.',
     question: 'miss', scene: 'throw', throws: ['gentle', 'strong', 'mightiest'], need: ['mightiest'] },
   { id: 'float', title: 'There IS gravity up here',
@@ -184,7 +184,7 @@ const STEPS = [
     more: 'The panel shows the spot on the ground directly under the satellite, riding along with the spinning Earth. The near satellite sweeps over place after place, circling about 16 times while Earth spins once.',
     scene: 'spin', ground: true },
   { id: 'match', title: 'The orbit that keeps up',
-    copy: 'Far enough out, one circle takes exactly one day. High above the equator, going Earth’s way, it hangs over one spot.',
+    copy: 'Far enough out, one circle takes exactly one day. Put one high above the equator, going Earth’s way, and watch a full day.',
     more: 'That is a geostationary orbit, a special geosynchronous one. Geosynchronous means its period matches Earth’s spin. Geostationary is the special case: circular, above the equator, going the way Earth turns — so it stays parked over one spot. That is why TV dish antennas can point at one place in the sky.',
     question: 'match', scene: 'match', ground: true },
   { id: 'tilt', title: 'Same day, different path',
@@ -204,12 +204,6 @@ function stepNeeds(st) {
   const action = st.scene === 'drop' ? 'drop' : st.scene === 'throw' ? 'throw' : st.scene === 'orbitLow' ? 'pull' : 'time';
   return { action, question: st.transfer ? 'transfer' : st.question || null };
 }
-const WHY_ACT = {
-  drop: 'Drop the ball first',
-  throw: 'Try the throws first',
-  pull: 'Show Earth’s pull first',
-  time: 'Play or step the picture first',
-};
 function questionDone(st) {
   const n = stepNeeds(st);
   if (!n || !n.question) return true;
@@ -218,8 +212,8 @@ function questionDone(st) {
 function zoneState(st) {
   const n = stepNeeds(st);
   if (!n) return { active: 'none', nextEnabled: true };
-  if (!journey.acted[st.id]) return { active: 'scene', nextEnabled: false, why: WHY_ACT[n.action] };
-  if (!questionDone(st)) return { active: 'question', nextEnabled: false, why: 'Answer the question first' };
+  if (!journey.acted[st.id]) return { active: 'scene', nextEnabled: false };
+  if (!questionDone(st)) return { active: 'question', nextEnabled: false };
   return { active: 'done', nextEnabled: true };
 }
 function markActed() {
