@@ -57,11 +57,11 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await p.locator('#next').click();
     e = await ev(p);
     note('step 1 drop: Drop button present', e.dock.some((d) => d.includes('Drop')));
-    note('gate: one active zone, question locked first', e.zone === 'scene' && e.answersLocked && !e.dockLocked && e.nextDisabled && e.cue === 'scene' && e.nextText.includes('Drop'));
+    note('gate: question absent until earned, no gating copy', e.zone === 'scene' && e.answersAbsent && e.nextHidden && e.cue === 'scene' && !e.questionMoment);
     await p.locator('#scene-dock button').first().click();
     await p.waitForTimeout(1400);
     e = await ev(p);
-    note('gate: acting moves the one cue to the question', e.zone === 'question' && e.dockLocked && !e.answersLocked && e.nextDisabled && e.cue === 'question' && e.nextText.includes('Answer'));
+    note('gate: acting brings the question moment', e.zone === 'question' && !e.answersAbsent && e.nextHidden && e.cue === 'question' && e.questionMoment && e.peekVisible);
     await p.screenshot({ path: `${out}/02-drop-landed-390.png` });
     // wrong answer then right answer (retry)
     const ans = p.locator('#answers button');
@@ -72,12 +72,12 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await ans.nth(0).click();
     e = await ev(p);
     note('retry right answer acknowledged', e.feedback.startsWith('Yes'));
-    note('gate: answered step unlocks Next, cue gone', e.zone === 'done' && !e.nextDisabled && e.cue === null && !e.answersLocked && !e.dockLocked);
+    note('gate: answered step reveals Next, cue gone', e.zone === 'done' && !e.nextHidden && e.cue === null && !e.answersAbsent);
     await p.screenshot({ path: `${out}/03-drop-answered-390.png` });
 
     await p.locator('#next').click();
     e = await ev(p);
-    note('gate: throw step starts locked on the picture', e.zone === 'scene' && e.answersLocked && e.nextDisabled);
+    note('gate: throw step starts with the picture only', e.zone === 'scene' && e.answersAbsent && e.nextHidden);
     await p.locator('#scene-dock button', { hasText: 'Gentle' }).click();
     await p.waitForTimeout(300);
     await p.screenshot({ path: `${out}/04-throw-gentle-flying-390.png` });
@@ -85,16 +85,16 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     await p.waitForTimeout(9000);
     e = await ev(p);
     note('gentle throw finishes paused', e.playing === false);
-    note('gate: one throw alone does not unlock yet', e.zone === 'scene' && e.nextDisabled);
+    note('gate: one throw alone does not reveal the question yet', e.zone === 'scene' && e.answersAbsent && e.nextHidden);
     await p.screenshot({ path: `${out}/05-throw-gentle-landed-390.png` });
     await p.locator('#scene-dock button', { hasText: 'Strong' }).click();
     await p.waitForTimeout(12000);
     e = await ev(p);
-    note('gate: both throws unlock the question', e.zone === 'question' && e.dockLocked);
+    note('gate: both throws bring the question', e.zone === 'question' && !e.answersAbsent);
     await p.screenshot({ path: `${out}/06-throw-strong-landed-390.png` });
     await p.locator('#answers button').first().click();
     e = await ev(p);
-    note('gate: throw answered, Next unlocked', e.zone === 'done' && !e.nextDisabled);
+    note('gate: throw answered, Next revealed', e.zone === 'done' && !e.nextHidden);
 
     await p.locator('#next').click();
     await p.locator('#scene-dock button', { hasText: 'Mightiest' }).click();
@@ -117,7 +117,7 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
     note('gate: showing the pull moves to the question', e.zone === 'question');
     await p.locator('#answers button').first().click();
     e = await ev(p);
-    note('gate: float answered after showing the pull', e.zone === 'done' && !e.nextDisabled);
+    note('gate: float answered after showing the pull', e.zone === 'done' && !e.nextHidden);
     await p.locator('#scene-dock button', { hasText: 'Play' }).click();
     await p.waitForTimeout(2500);
     e = await ev(p);
@@ -166,7 +166,7 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
 
     await p.locator('#next').click(); // transfer
     e = await ev(p);
-    note('gate: transfer locks the question until you look', e.zone === 'scene' && e.answersLocked && e.nextDisabled && e.cue === 'scene');
+    note('gate: transfer hides the question until you look', e.zone === 'scene' && e.answersAbsent && e.nextHidden && e.cue === 'scene');
     await p.screenshot({ path: `${out}/13a-transfer-entry-390.png` });
     {
       const { layout, inset } = await ev(p);

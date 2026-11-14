@@ -100,6 +100,7 @@ function inkLine(ctx, x0, y0, x1, y1, seed, wobble = 1.6) {
 /* watercolor depth: two low-alpha offset fills of the same color under the
    ink stroke. Same palette, no new colors (docs/TOKENS.md). */
 function wash(ctx, cx, cy, r, color) {
+  if (!(r > 0.5)) return; // hidden/zero-size stage: nothing honest to paint
   ctx.save();
   ctx.globalAlpha = 0.1; ctx.fillStyle = color;
   ctx.beginPath(); ctx.arc(cx + 1.5, cy - 1.5, r + 1.5, 0, 7); ctx.fill();
@@ -261,23 +262,18 @@ function renderGuide() {
   $('step-copy').textContent = isTransfer
     ? 'Here is a new tilt you have not watched before. Look, then answer.'
     : st.copy;
-  // answers
+  // answers: absent until the picture's moment is done (absence-then-arrival)
   const box = $('answers');
   box.innerHTML = '';
   answerEls.length = 0;
   const q = isTransfer ? transfer : st.question ? questions[st.question] : null;
-  box.classList.toggle('locked', zone.active === 'scene');
-  if (q) {
-    if (zone.active === 'scene') {
-      const lab = document.createElement('p');
-      lab.className = 'zone-label';
-      lab.textContent = 'First: try the picture ↑';
-      box.appendChild(lab);
-    }
+  const questionVisible = !!q && zone.active !== 'scene';
+  if (questionVisible && !box.dataset.shown) box.classList.add('arrive'); else box.classList.remove('arrive');
+  box.dataset.shown = questionVisible ? '1' : '';
+  if (q && questionVisible) {
     q.choices.forEach((c, i) => {
       const b = document.createElement('button');
       b.textContent = c;
-      if (zone.active === 'scene') b.disabled = true;
       const chosen = isTransfer ? journey.transferChoice : journey.answers[st.question];
       if (chosen === i) b.setAttribute('aria-pressed', 'true');
       if ((isTransfer ? journey.transferFeedback : journey.feedbackFor === st.question) && i === q.answer) b.classList.add('correct');
@@ -312,14 +308,24 @@ function renderGuide() {
     if (i === journey.step) d.className = 'active';
     prog.appendChild(d);
   }
-  // next/back
+  // next/back: absent until earned - no gating copy anywhere
   $('back').disabled = journey.step === 0;
   const next = $('next');
-  next.disabled = !zone.nextEnabled;
-  if (!zone.nextEnabled) next.textContent = zone.why;
-  else if (journey.step === 0) next.innerHTML = 'Start learning <span aria-hidden="true">→</span>';
+  if (zone.nextEnabled && next.hidden) next.classList.add('arrive'); else next.classList.remove('arrive');
+  next.hidden = !zone.nextEnabled;
+  if (journey.step === 0) next.innerHTML = 'Start learning <span aria-hidden="true">→</span>';
   else if (journey.step === STEP_COUNT - 1) next.innerHTML = 'Begin again <span aria-hidden="true">↺</span>';
   else next.innerHTML = 'Next <span aria-hidden="true">→</span>';
+  // question moment (phones): while the question is UNANSWERED it takes the
+  // stage and the picture is a peek away; once answered, the picture returns
+  // with the feedback and Next (observe-and-compare survives).
+  const moment = questionVisible && zone.active === 'question';
+  document.body.classList.toggle('question-moment', moment);
+  if (!moment) document.body.classList.remove('peek-scene');
+  if (stageDirty && getComputedStyle($('model-stage')).display !== 'none') fit();
+  const peek = $('peek');
+  peek.hidden = !moment;
+  peek.textContent = document.body.classList.contains('peek-scene') ? 'Back to the question ↓' : 'See the picture ↑';
   if (fb) $('feedback').scrollIntoView({ block: 'nearest' });
   $('step-title').focus({ preventScroll: true });
   buildDock();
@@ -337,6 +343,12 @@ $('next').addEventListener('click', () => {
 });
 $('back').addEventListener('click', () => go('back'));
 $('reset').addEventListener('click', () => { journey = reduceJourney(journey, { type: 'reset' }); enterScene(); renderGuide(); });
+$('peek').addEventListener('click', () => {
+  const on = document.body.classList.toggle('peek-scene');
+  $('peek').textContent = on ? 'Back to the question ↓' : 'See the picture ↑';
+  if (on && stageDirty) fit();
+  (on ? $('model-stage') : $('answers')).scrollIntoView({ block: 'start' });
+});
 
 /* ---------- scene dock ---------- */
 function dockButton(label, action, opts = {}) {
@@ -351,11 +363,8 @@ function finishDock(dock) {
   const zone = zoneState(STEPS[journey.step]);
   dock.classList.toggle('locked', zone.active === 'question');
   if (zone.active === 'question') {
+    // scene pauses while the question has the stage; no gating copy
     for (const b of dock.querySelectorAll('button')) b.disabled = true;
-    const lab = document.createElement('div');
-    lab.className = 'dock-label';
-    lab.textContent = 'Answer below to go on ↓';
-    dock.appendChild(lab);
   }
 }
 function buildDock() {
@@ -495,7 +504,10 @@ function drawTime(ctx, lines) {
 }
 
 /* ---------- drawing: scenes ---------- */
+let stageDirty = false;
 function draw() {
+  if (getComputedStyle($('model-stage')).display === 'none') { stageDirty = true; return; }
+  stageDirty = false;
   const st = STEPS[journey.step];
   sctx.clearRect(0, 0, SW, SH);
   markReset();
@@ -906,9 +918,14 @@ export function journeyEvidence() {
     zone: z.active,
     nextEnabled: z.nextEnabled,
     nextDisabled: $('next').disabled,
+    nextHidden: $('next').hidden,
     nextText: $('next').textContent,
     cue: $('cue').hidden ? null : z.active,
     answersLocked: $('answers').classList.contains('locked'),
+    answersAbsent: $('answers').children.length === 0,
+    questionMoment: document.body.classList.contains('question-moment'),
+    peekVisible: !$('peek').hidden,
+    stageHidden: getComputedStyle($('model-stage')).display === 'none',
     dockLocked: $('scene-dock').classList.contains('locked'),
     transferChoice: journey.transferChoice,
     feedback: $('feedback').textContent,

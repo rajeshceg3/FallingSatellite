@@ -160,6 +160,18 @@ summary {
 details p { font-size: 18px; line-height: 1.55; }
 #journey-controls { margin-top: 32px; }
 #progress { display: flex; gap: 9px; align-items: center; margin-bottom: 20px; height: 12px; }
+/* question moment: absence-then-arrival, the picture a peek away (docs/QUESTION-MOMENT.md) */
+#peek { display: none; }
+body.question-moment #peek { display: block; width: 100%; background: none; border: none; box-shadow: none; color: #6d5545; text-decoration: underline; text-underline-offset: 4px; min-height: 44px; font-size: 15px; }
+@media (max-width: 560px) {
+  body.question-moment:not(.peek-scene) #model-stage { display: none; }
+}
+@media (min-width: 561px) {
+  body.question-moment #peek { display: none; }
+}
+@keyframes arrive { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+#answers.arrive { animation: arrive 300ms var(--out); }
+#next.arrive { animation: arrive 240ms var(--out); }
 #progress i { display: block; width: 9px; height: 9px; background: #cbbba4; border-radius: 50%; transition: width 300ms var(--out), background 300ms var(--out); }
 #progress i.active { background: #a94a34; width: 26px; border-radius: 8px; }
 .actions { display: flex; align-items: center; gap: 12px; }
