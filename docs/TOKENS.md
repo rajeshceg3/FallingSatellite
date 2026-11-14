@@ -25,6 +25,7 @@ Message row y~30, caption row cy+78; art never enters either; right-column label
 
 ## Learning-flow gate (standing rule, user Nov 14 2026)
 Every learning app, before ship, checked against the Feynman first-principles pattern:
+0. WHY-BASED (user, verbatim, Nov 14 3:20 PM): "learning apps must be why-based. Start with the why (the need or problem that makes the topic matter), then go one step at a time, each step answering 'why does this lead to the next', no logical leaps." Main's reading: the why is the motivation, never the answer, so discovery stays with the learner.
 1. Start from one simple thing (a ball, a shadow, a clock hand) - no jargon, destination never stated up front.
 2. The learner causes it: each step's key event is learner-triggered, never auto-played or narrated.
 3. Name the idea only AFTER they feel it: terms (gravity, orbit, friction) first appear in feedback or Read-more AFTER the action. A question hook up front is fine; the answer never precedes the doing.
