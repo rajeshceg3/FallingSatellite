@@ -23,6 +23,10 @@ Under every filled disk: 2 low-alpha offset fills of the same color (a 0.10, the
 ## Labels
 Message row y~30, caption row cy+78; art never enters either; right-column labels right-aligned by measureText; layout-mark gates assert no overlaps at 320/390/desktop/landscape.
 
+## Desktop gate (ground rule, user Nov 14 2026)
+User, verbatim (WhatsApp Nov 14 9:01 PM IST): "are you testing everything on desktop viewport as well? that is primary" and (9:03 PM): "make desktop check also a ground rule".
+Every app check, build and release gate includes real Chromium at 1280x800 AND 1440x900 alongside phone widths: layout composition (never a stretched phone column - assert two-column composition), tap targets >= 44px, full journey, reduced motion, per-size overlap gates. Pixel claims say "Real Chromium, not a physical laptop."
+
 ## Learning-flow gate (standing rule, user Nov 14 2026)
 Every learning app, before ship, checked against the Feynman first-principles pattern:
 0. WHY-BASED (user, verbatim, WhatsApp Nov 14 3:20 PM IST): "also make it a why based approach, start with the why and go from there one step at a time without logical leaps". Working interpretation (main's reading): open with the why as the motivation - the need or problem that makes the topic matter - never the answer, so discovery stays with the learner; then one step at a time, each step answering why it leads to the next.

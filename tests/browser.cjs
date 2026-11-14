@@ -213,7 +213,7 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
   }
 
   /* ---- size matrix ---- */
-  for (const [w, h, tag] of [[320, 568, '320'], [844, 390, 'landscape'], [1320, 900, 'desktop']]) {
+  for (const [w, h, tag] of [[320, 568, '320'], [844, 390, 'landscape'], [1280, 800, 'desktop-1280'], [1440, 900, 'desktop-1440']]) {
     const p = await newPage(w, h, 'reduce');
     {
       const fits = await p.evaluate(() => {
@@ -235,6 +235,20 @@ const note = (name, ok, extra = '') => { results.push({ name, ok, extra }); cons
       note(`gate: throw label clear of status (${tag})`, noOverlap(layout.mountainLabel, layout.status), JSON.stringify({ l: layout.mountainLabel, s: layout.status }));
       note(`gate: throw label clear of bubble (${tag})`, noOverlap(layout.mountainLabel, layout.zoomBubble), JSON.stringify({ l: layout.mountainLabel, b: layout.zoomBubble }));
       note(`gate: throw status clear of caption (${tag})`, noOverlap(layout.status, layout.caption), JSON.stringify({ s: layout.status, c: layout.caption }));
+    }
+    if (tag.startsWith('desktop')) {
+      const comp = await p.evaluate(() => {
+        const stage = document.querySelector('#model-stage').getBoundingClientRect();
+        const guide = document.querySelector('#guide').getBoundingClientRect();
+        const vw = document.documentElement.clientWidth;
+        const btns = [...document.querySelectorAll('#scene-dock button, #answers button, #next, #back')].filter((b) => b.getClientRects().length > 0);
+        const minTarget = Math.min(...btns.map((b) => { const r = b.getBoundingClientRect(); return Math.min(r.width, r.height); }));
+        return { stageW: stage.width, stageR: stage.right, guideL: guide.left, guideW: guide.width, vw, minTarget };
+      });
+      note(`gate: desktop composition is two columns, not a stretched phone column (${tag})`,
+        comp.stageR <= comp.guideL + 1 && comp.guideW >= 330 && comp.stageW > comp.guideW && comp.stageW < comp.vw * 0.75,
+        JSON.stringify(comp));
+      note(`gate: desktop tap targets >= 44px (${tag})`, comp.minTarget >= 44, `min=${Math.round(comp.minTarget)}px`);
     }
     await completeStep(p); // strong + answer
     for (let i = 0; i < 5; i++) { await p.locator('#next').click(); await completeStep(p); }
