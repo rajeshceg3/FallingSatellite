@@ -232,6 +232,7 @@ function markActed() {
 }
 
 /* ---------- scene state ---------- */
+let lastRenderedStep = -1;
 let journey = createJourney();
 let scene = null;
 function makeScene(id) {
@@ -251,6 +252,9 @@ const answerEls = [];
 function renderGuide() {
   const st = STEPS[journey.step];
   const zone = zoneState(st);
+  const ws = $('workshop');
+  ws.dataset.zone = zone.active;
+  ws.classList.toggle('covering', st.id === 'cover');
   $('step-title').textContent = st.title;
   const isTransfer = !!st.transfer;
   $('step-copy').textContent = isTransfer
@@ -262,6 +266,7 @@ function renderGuide() {
   answerEls.length = 0;
   const q = isTransfer ? transfer : st.question ? questions[st.question] : null;
   const questionVisible = !!q && zone.active !== 'scene';
+  if (questionVisible) $('step-copy').textContent = q.title;
   if (questionVisible && !box.dataset.shown) box.classList.add('arrive'); else box.classList.remove('arrive');
   box.dataset.shown = questionVisible ? '1' : '';
   if (q && questionVisible) {
@@ -269,7 +274,7 @@ function renderGuide() {
       const b = document.createElement('button');
       b.textContent = c;
       const chosen = isTransfer ? journey.transferChoice : journey.answers[st.question];
-      if (chosen === i) b.setAttribute('aria-pressed', 'true');
+      if (chosen === i) { b.setAttribute('aria-pressed', 'true'); b.classList.add('picked'); }
       if ((isTransfer ? journey.transferFeedback : journey.feedbackFor === st.question) && i === q.answer) b.classList.add('correct');
       b.addEventListener('click', () => {
         journey = reduceJourney(journey, isTransfer ? { type: 'answerTransfer', choice: i } : { type: 'answer', question: st.question, choice: i });
@@ -320,9 +325,21 @@ function renderGuide() {
   const peek = $('peek');
   peek.hidden = !moment;
   peek.textContent = document.body.classList.contains('peek-scene') ? 'Back to the question ↓' : 'See the picture ↑';
-  if (fb) $('feedback').scrollIntoView({ block: 'nearest' });
+  if (fb) {
+    const phone = matchMedia('(max-width: 760px)').matches;
+    const receipt = phone ? box.querySelector('button.picked') : null;
+    if (receipt) {
+      const gc = $('guide-content');
+      // land on the top of the receipt so the pick, feedback and teachback stay visible
+      if (gc.scrollHeight > gc.clientHeight + 2) {
+        gc.scrollTop = receipt.getBoundingClientRect().top - gc.getBoundingClientRect().top + gc.scrollTop - 8;
+      } else gc.scrollTop = 0;
+    } else $('feedback').scrollIntoView({ block: 'nearest' });
+  }
   $('step-title').focus({ preventScroll: true });
+  if (lastRenderedStep !== journey.step) { $('guide-content').scrollTop = 0; lastRenderedStep = journey.step; }
   buildDock();
+  draw();
   positionCue(zone);
 }
 
@@ -345,9 +362,12 @@ $('peek').addEventListener('click', () => {
 });
 
 /* ---------- scene dock ---------- */
+const SHORT_LABELS = { '+15 min': '+15m', '+10 min': '+10m', '+1 min': '+1m', '+1 h': '+1h', '↺ Start over': '↺', 'Show Earth’s pull': 'Pull' };
 function dockButton(label, action, opts = {}) {
   const b = document.createElement('button');
-  b.textContent = label;
+  const tiny = matchMedia('(max-width: 760px) and (max-height: 650px)').matches && SHORT_LABELS[label];
+  b.textContent = tiny ? SHORT_LABELS[label] : label;
+  if (tiny && !opts.aria) b.setAttribute('aria-label', label);
   if (opts.pressed !== undefined) b.setAttribute('aria-pressed', String(opts.pressed));
   if (opts.aria) b.setAttribute('aria-label', opts.aria);
   b.addEventListener('click', () => { action(); draw(); });
@@ -431,6 +451,14 @@ function recordTrail() {
 }
 
 /* ---------- drawing: shared bits ---------- */
+/* caption that shrinks to fit the stage width and stays centered */
+function inkTextFit(ctx, str, y, size = 15) {
+  ctx.save();
+  while (size > 9) { ctx.font = `600 ${size}px system-ui, sans-serif`; if (ctx.measureText(str).width <= SW - 24) break; size -= 1; }
+  const w = ctx.measureText(str).width;
+  ctx.restore();
+  inkText(ctx, str, Math.max(12, (SW - w) / 2), y, size);
+}
 function inkText(ctx, str, x, y, size = 14, color) {
   ctx.save();
   ctx.font = `600 ${size}px system-ui, sans-serif`;
@@ -493,7 +521,13 @@ function drawEarthDisk(ctx, cx, cy, r, seed, withHome, t) {
 function drawTime(ctx, lines) {
   ctx.save();
   ctx.globalAlpha = 0.92;
-  lines.forEach((s, i) => { inkText(ctx, s, 16, 26 + i * 20, 14); noteText('timeLines', s, 16, 26 + i * 20, 14); });
+  lines.forEach((s, i) => {
+    let size = 14;
+    ctx.save();
+    while (size > 9) { ctx.font = `600 ${size}px system-ui, sans-serif`; if (ctx.measureText(s).width <= SW - 32) break; size -= 1; }
+    ctx.restore();
+    inkText(ctx, s, 16, 26 + i * 20, size); noteText('timeLines', s, 16, 26 + i * 20, size);
+  });
   ctx.restore();
 }
 
@@ -558,7 +592,7 @@ function drawDrop() {
   const gy = cy + (SH - 80) * 0.26;
   inkLine(sctx, cx - SW * 0.32, gy, cx + SW * 0.32, gy, 11, 2.2);
   hatch(sctx, cx, gy + 30, 60, 77, 4);
-  const holdY = gy - SH * 0.42;
+  const holdY = (SH < 260 && matchMedia('(max-width: 760px)').matches) ? Math.max(gy - SH * 0.42, 24) : gy - SH * 0.42;
   let by = holdY;
   if (scene.dropped) {
     const a = scene.anim; // 0..1
@@ -582,14 +616,17 @@ function drawDrop() {
     }
     inkLine(sctx, cx - 20, gy - 2, cx - 30, gy - 12, 21, 0.6);
     inkLine(sctx, cx + 20, gy - 2, cx + 30, gy - 12, 22, 0.6);
-    inkText(sctx, 'Down it comes. Everything falls.', cx - SW * 0.3, gy + 34, 15);
+    if (matchMedia('(max-width: 760px)').matches) inkTextFit(sctx, 'Down it comes. Everything falls.', gy + 34, 15);
+    else inkText(sctx, 'Down it comes. Everything falls.', cx - SW * 0.3, gy + 34, 15);
   } else if (!scene.dropped) {
-    inkText(sctx, 'Held high. Let go…', cx - SW * 0.3, gy + 34, 15);
+    if (matchMedia('(max-width: 760px)').matches) inkTextFit(sctx, 'Held high. Let go…', gy + 34, 15);
+    else inkText(sctx, 'Held high. Let go…', cx - SW * 0.3, gy + 34, 15);
   }
 }
 
+function dockH() { const d = $('scene-dock'); return d ? d.offsetHeight + 12 : 0; }
 function drawThrow() {
-  const availH = SH - 170; // dock plus three caption rows get their own space
+  const availH = Math.max(64, SH - dockH() - 62); // dock (measured) plus three caption rows get their own space
   const cx = SW / 2, cy = availH / 2 + 8;
   const k = (Math.min(SW, availH) * 0.48) / (EARTH_RADIUS * 1.06);
   const re = EARTH_RADIUS * k;
@@ -679,18 +716,43 @@ function drawThrow() {
     inkLine(sctx, bx - 14, by - 2, bx - 22, by - 12, 41, 0.6);
     inkLine(sctx, bx + 14, by - 2, bx + 22, by - 12, 42, 0.6);
   } else msg = 'It came all the way around — still falling, still missing the ground.';
-  const stSize = SW < 330 ? 12 : 14;
-  inkText(sctx, msg, 16, availH + 28, stSize);
-  noteText('status', msg, 16, availH + 28, stSize);
+  let stSize = SW < 330 ? 12 : 14;
+  let wrapped = null;
+  if (matchMedia('(max-width: 760px)').matches) {
+    sctx.save();
+    while (stSize > 10) { sctx.font = `600 ${stSize}px system-ui, sans-serif`; if (sctx.measureText(msg).width <= SW - 28) break; stSize -= 0.5; }
+    sctx.font = `600 ${stSize}px system-ui, sans-serif`;
+    if (sctx.measureText(msg).width > SW - 28) {
+      // still too wide at the smallest readable size: two lines, split near the middle
+      const words = msg.split(' ');
+      let best = 1, bestDiff = Infinity;
+      for (let i = 1; i < words.length; i++) {
+        const diff = Math.abs(sctx.measureText(words.slice(0, i).join(' ')).width - sctx.measureText(words.slice(i).join(' ')).width);
+        if (diff < bestDiff) { bestDiff = diff; best = i; }
+      }
+      wrapped = [words.slice(0, best).join(' '), words.slice(best).join(' ')];
+    }
+    sctx.restore();
+  }
+  if (wrapped) {
+    inkText(sctx, wrapped[0], 16, availH + 20, stSize);
+    inkText(sctx, wrapped[1], 16, availH + 33, stSize);
+    noteText('status', msg, 16, availH + 20, stSize);
+  } else {
+    inkText(sctx, msg, 16, availH + 28, stSize);
+    noteText('status', msg, 16, availH + 28, stSize);
+  }
 }
 
 function drawOrbitSet(st) {
   const sid = scene.id;
-  const availH = SH - 92;
-  const gPad = st.ground ? (SW < 340 ? 0.62 : 0.82) : 1; // ground steps make room for the inset
-  const cx = st.ground ? SW * 0.45 : SW / 2, cy = availH / 2 + 6;
+  const shortPhone = SH < 260 && matchMedia('(max-width: 760px)').matches;
+  const topPad = (sid === 'compare' && shortPhone) ? 40 : 0;
+  const availH = Math.max(72, SH - dockH() - 12 - topPad);
+  const gPad = st.ground ? (shortPhone ? 0.85 : SW < 340 ? 0.62 : 0.82) : 1; // ground steps make room for the inset
+  const cx = st.ground ? SW * 0.45 : SW / 2, cy = topPad + availH / 2 + 6;
   const fitR = sid === 'orbitLow' || sid === 'spin' ? EARTH_RADIUS * 2.6 : MATCHED_RADIUS * 1.12;
-  const k = (Math.min(SW, availH) * 0.47 * gPad) / fitR;
+  const k = (Math.min(SW, availH) * (shortPhone ? 0.5 : 0.47) * gPad) / fitR;
   drawEarthDisk(sctx, cx, cy, EARTH_RADIUS * k, 5, sid === 'spin' || sid === 'match', scene.t);
   const drawOne = (o, color, seed, label) => {
     sctx.strokeStyle = palette.ink; sctx.globalAlpha = 0.5; sctx.lineWidth = 1.4;
@@ -712,7 +774,12 @@ function drawOrbitSet(st) {
     drawOne(CASES.stationary, palette.coral, 200);
     const nLow = Math.floor(scene.t / CASES.low.period);
     const nFar = Math.floor(scene.t / CASES.stationary.period);
-    drawTime(sctx, [
+    if (shortPhone) {
+      drawTime(sctx, [
+        `Time: ${fmtDur(scene.t)}`,
+        `Near: ${nLow} (${fmtDur(CASES.low.period)} each)  Far: ${nFar} (${fmtDur(CASES.stationary.period)} each)`,
+      ]);
+    } else drawTime(sctx, [
       `Time: ${fmtDur(scene.t)}`,
       `Near satellite: ${nLow} circle${nLow === 1 ? '' : 's'} (one takes ~${fmtDur(CASES.low.period)})`,
       `Far satellite: ${nFar} circle${nFar === 1 ? '' : 's'} (one takes ~${fmtDur(CASES.stationary.period)})`,
@@ -759,7 +826,8 @@ function drawGround() {
   gctx.fillStyle = palette.sky;
   gctx.beginPath(); gctx.arc(cx + R, cy, 4.5, 0, 7); gctx.fill();
   gctx.strokeStyle = palette.ink; gctx.lineWidth = 1.2; gctx.stroke();
-  inkText(gctx, 'home', cx + R - 34, cy + 5, 11);
+  const showHint = w >= 80 && scene.trail.length <= 1 && scene.t === 0;
+  inkText(gctx, 'home', Math.max(2, Math.min(cx + R - 34, w - 32)), showHint ? cy - 18 : cy + 5, 11);
   const tiny = w < 80;
   // trail + current ground point
   // trail + current ground point, older ink fading
@@ -939,3 +1007,4 @@ export function journeyEvidence() {
 enterScene();
 renderGuide();
 fit();
+
