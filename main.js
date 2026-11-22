@@ -37,13 +37,12 @@ function readPalette() {
 }
 readPalette();
 const dark = matchMedia('(prefers-color-scheme: dark)');
-if (localStorage.getItem('fs-theme')) document.documentElement.dataset.theme = localStorage.getItem('fs-theme');
-else if (dark.matches) document.documentElement.dataset.theme = 'dark';
+try { if (localStorage.getItem('fs-theme')) document.documentElement.dataset.theme = localStorage.getItem('fs-theme'); } catch {}
 readPalette();
 $('theme').addEventListener('click', () => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
-  localStorage.setItem('fs-theme', next);
+  try { localStorage.setItem('fs-theme', next); } catch {}
   $('theme').setAttribute('aria-pressed', String(next === 'dark'));
   $('theme').setAttribute('aria-label', next === 'dark' ? 'Use light theme' : 'Use dark theme');
   readPalette();
@@ -68,16 +67,7 @@ function fit() {
 new ResizeObserver(fit).observe(sceneCanvas.parentElement);
 
 /* the one cue arrow: points at the single active zone, then disappears */
-function positionCue(zone) {
-  const cue = $('cue');
-  if (!zone || zone.active === 'done' || zone.active === 'none') { cue.hidden = true; return; }
-  const target = $(zone.active === 'scene' ? 'scene-dock' : 'answers');
-  const host = $('workshop');
-  const tr = target.getBoundingClientRect(), hr = host.getBoundingClientRect();
-  cue.hidden = false;
-  cue.style.left = `${tr.left - hr.left + tr.width / 2 - 23}px`;
-  cue.style.top = `${tr.top - hr.top - 62}px`;
-}
+function positionCue() { $('cue').hidden = true; }
 
 /* ---------- seeded ink strokes (deterministic for stable frames) ---------- */
 const hash = (n) => {
@@ -194,45 +184,16 @@ const STEPS = [
   { id: 'transfer', title: 'One last puzzle', scene: 'transfer', ground: true, transfer: true },
 ];
 
-/* ---------- one active zone at a time ----------
-   Picture first, then the question, then Next. Exactly one zone is active:
-   it gets the single hand-drawn cue arrow; the other is dimmed and locked
-   with a short plain label. Next stays disabled, saying why in a few words,
-   until the step's action is done. */
-function stepNeeds(st) {
-  if (st.id === 'cover') return null;
-  const action = st.scene === 'drop' ? 'drop' : st.scene === 'throw' ? 'throw' : st.scene === 'orbitLow' ? 'pull' : 'time';
-  return { action, question: st.transfer ? 'transfer' : st.question || null };
-}
-function questionDone(st) {
-  const n = stepNeeds(st);
-  if (!n || !n.question) return true;
-  return n.question === 'transfer' ? journey.transferChoice !== null : journey.answers[st.question] !== undefined;
-}
-function zoneState(st) {
-  const n = stepNeeds(st);
-  if (!n) return { active: 'none', nextEnabled: true };
-  if (!journey.acted[st.id]) return { active: 'scene', nextEnabled: false };
-  if (!questionDone(st)) return { active: 'question', nextEnabled: false };
-  return { active: 'done', nextEnabled: true };
-}
-function markActed() {
-  const st = STEPS[journey.step];
-  const n = stepNeeds(st);
-  if (!n || journey.acted[st.id] || !scene) return;
-  let ok = false;
-  if (n.action === 'drop') ok = scene.dropped && scene.anim >= 1;
-  else if (n.action === 'throw') ok = (st.need || st.throws).every((k) => scene.thrownSet && scene.thrownSet[k]);
-  else if (n.action === 'pull') ok = !!scene.pull;
-  else ok = scene.t > 0;
-  if (ok) {
-    journey = reduceJourney(journey, { type: 'acted', step: st.id });
-    renderGuide();
-  }
-}
+/* One stable control. The scene never advances the lesson. */
+function zoneState() { return {active: flow.phase, nextEnabled: true}; }
+function markActed() {}
 
 /* ---------- scene state ---------- */
 let lastRenderedStep = -1;
+let flow = {phase: "cover", action: 0, choice: null};
+const history = [];
+let segmentStart = null;
+let runToken = 0;
 let journey = createJourney();
 let scene = null;
 function makeScene(id) {
@@ -247,175 +208,170 @@ const ORBIT_FOR = { orbitLow: CASES.low, compare: null, spin: CASES.low, match: 
 const RATE = { orbitLow: 260, compare: 1800, spin: 1800, match: 1800, tilt: 1800, transfer: 1800 };
 const STEP_SIZES = { orbitLow: [60, 600], compare: [900, 3600], spin: [900, 3600], match: [900, 3600], tilt: [900, 3600], transfer: [900, 3600] };
 
-/* ---------- journey rendering ---------- */
-const answerEls = [];
-function renderGuide() {
-  const st = STEPS[journey.step];
-  const zone = zoneState(st);
-  const ws = $('workshop');
-  ws.dataset.zone = zone.active;
-  ws.classList.toggle('covering', st.id === 'cover');
-  $('step-title').textContent = st.title;
-  const isTransfer = !!st.transfer;
-  $('step-copy').textContent = isTransfer
-    ? 'Here is a new tilt you have not watched before. Look, then answer.'
-    : st.copy;
-  // answers: absent until the picture's moment is done (absence-then-arrival)
-  const box = $('answers');
-  box.innerHTML = '';
-  answerEls.length = 0;
-  const q = isTransfer ? transfer : st.question ? questions[st.question] : null;
-  const questionVisible = !!q && zone.active !== 'scene';
-  if (questionVisible) $('step-copy').textContent = q.title;
-  if (questionVisible && !box.dataset.shown) box.classList.add('arrive'); else box.classList.remove('arrive');
-  box.dataset.shown = questionVisible ? '1' : '';
-  if (q && questionVisible) {
-    q.choices.forEach((c, i) => {
-      const b = document.createElement('button');
-      b.textContent = c;
-      const chosen = isTransfer ? journey.transferChoice : journey.answers[st.question];
-      if (chosen === i) { b.setAttribute('aria-pressed', 'true'); b.classList.add('picked'); }
-      if ((isTransfer ? journey.transferFeedback : journey.feedbackFor === st.question) && i === q.answer) b.classList.add('correct');
-      b.addEventListener('click', () => {
-        journey = reduceJourney(journey, isTransfer ? { type: 'answerTransfer', choice: i } : { type: 'answer', question: st.question, choice: i });
-        renderGuide();
-      });
-      box.appendChild(b);
-      answerEls.push(b);
-    });
-  }
-  // feedback
-  let fb = '';
-  if (isTransfer && journey.transferFeedback) fb = transfer.why[journey.transferChoice];
-  else if (st.question && journey.feedbackFor === st.question) fb = questions[st.question].why[journey.answers[st.question]];
-  if (isTransfer && journey.transferFeedback && !journey.taughtBack) {
-    const tb = document.createElement('button');
-    tb.id = 'teachback';
-    tb.className = 'icon-text';
-    tb.textContent = 'Say it in your own words';
-    tb.style.marginTop = '16px';
-    tb.addEventListener('click', () => { journey = reduceJourney(journey, { type: 'teachback' }); renderGuide(); });
-    box.appendChild(tb);
-  }
-  if (isTransfer && journey.taughtBack) fb += `\n\n${teachback.prompt} ${teachback.reveal}`;
-  $('feedback').textContent = fb;
-  // progress
-  const prog = $('progress');
-  prog.innerHTML = '';
-  for (let i = 0; i < STEP_COUNT; i++) {
-    const d = document.createElement('i');
-    if (i === journey.step) d.className = 'active';
-    prog.appendChild(d);
-  }
-  // next/back: absent until earned - no gating copy anywhere
-  $('back').disabled = journey.step === 0;
-  const next = $('next');
-  if (zone.nextEnabled && next.hidden) next.classList.add('arrive'); else next.classList.remove('arrive');
-  next.hidden = !zone.nextEnabled;
-  if (journey.step === 0) next.innerHTML = 'Start learning <span aria-hidden="true">→</span>';
-  else if (journey.step === STEP_COUNT - 1) next.innerHTML = 'Begin again <span aria-hidden="true">↺</span>';
-  else next.innerHTML = 'Next <span aria-hidden="true">→</span>';
-  // question moment (phones): while the question is UNANSWERED it takes the
-  // stage and the picture is a peek away; once answered, the picture returns
-  // with the feedback and Next (observe-and-compare survives).
-  const moment = questionVisible && zone.active === 'question';
-  document.body.classList.toggle('question-moment', moment);
-  if (!moment) document.body.classList.remove('peek-scene');
-  if (stageDirty && getComputedStyle($('model-stage')).display !== 'none') fit();
-  const peek = $('peek');
-  peek.hidden = !moment;
-  peek.textContent = document.body.classList.contains('peek-scene') ? 'Back to the question ↓' : 'See the picture ↑';
-  if (fb) {
-    const phone = matchMedia('(max-width: 760px)').matches;
-    const receipt = phone ? box.querySelector('button.picked') : null;
-    if (receipt) {
-      const gc = $('guide-content');
-      // land on the top of the receipt so the pick, feedback and teachback stay visible
-      if (gc.scrollHeight > gc.clientHeight + 2) {
-        gc.scrollTop = receipt.getBoundingClientRect().top - gc.getBoundingClientRect().top + gc.scrollTop - 8;
-      } else gc.scrollTop = 0;
-    } else $('feedback').scrollIntoView({ block: 'nearest' });
-  }
-  $('step-title').focus({ preventScroll: true });
-  if (lastRenderedStep !== journey.step) { $('guide-content').scrollTop = 0; lastRenderedStep = journey.step; }
-  buildDock();
-  draw();
-  positionCue(zone);
+/* ---------- one-control journey ---------- */
+const LESSON = {
+  drop: { actions: ['Drop the ball'], before: ['You let go of a ball. Where will it go?'], results: ['It fell straight down. Something pulled it toward the ground.'] },
+  throw: { actions: ['Throw gently', 'Throw harder'], before: ['What changes when the ball moves sideways?', 'Same ball. Same height. More sideways speed.'], results: ['A sideways throw still falls. Now compare a stronger throw.', 'The stronger throw travels farther, but still falls.'] },
+  miss: { actions: ['Try an orbital throw'], before: ['The ground curves away. What if the ball moves sideways fast enough?'], results: ['The ball keeps falling. The round ground curves away just as fast.'] },
+  float: { actions: ["Reveal Earth's pull"], before: ['The station is high above the ground. Has gravity disappeared?'], results: ['Earth still pulls the station inward. Everything inside falls with it.'] },
+  compare: { actions: ['Compare one day'], before: ['A near satellite and a far satellite. Which takes longer to circle?'], results: ['The near satellite circles about sixteen times while the far one circles once.'] },
+  spin: { actions: ['Turn Earth one day'], before: ['Earth turns too. Follow the blue home flag.'], results: ['Earth spins once. The near satellite passes many different places.'] },
+  match: { actions: ['Match one day'], before: ['Give the far satellite one circle per Earth spin, above the equator.'], results: ['One circle. One spin. Same direction. The satellite stays over home.'] },
+  tilt: { actions: ['Tilt the orbit'], before: ['Keep the one-day time, but tilt the orbit. What changes?'], results: ['The ground trace wanders north and south. A one-day orbit alone is not enough.'] },
+};
+function remember() {
+  history.push({ journey: structuredClone(journey), flow: structuredClone(flow), scene: structuredClone(scene) });
 }
-
-function go(type) {
-  journey = reduceJourney(journey, { type });
-  enterScene();
+function setPhase(phase) { flow.phase = phase; renderGuide(); }
+function questionFor(st) { return st.transfer ? transfer : questions[st.question]; }
+function resetAll() {
+  stopPlayback(); runToken++; history.length = 0;
+  journey = createJourney(); flow = {phase: 'cover', action: 0, choice: null};
+  enterScene(); renderGuide();
+}
+function nextChapter() {
+  if (journey.step === STEP_COUNT - 1) { setPhase('teachback'); return; }
+  journey = reduceJourney(journey, {type: journey.step === 0 ? 'start' : 'next'});
+  flow = {phase: journey.step === STEP_COUNT - 1 ? 'question' : 'action', action: 0, choice: null};
+  enterScene(); renderGuide();
+}
+function resultOf(st) {
+  if (st.transfer) return transfer.why[flow.choice];
+  return LESSON[st.id]?.results[flow.action] || '';
+}
+function renderGuide() {
+  const st = STEPS[journey.step], phase = flow.phase, config = LESSON[st.id];
+  const q = questionFor(st);
+  const question = phase === 'question';
+  const reading = ['question','feedback','teachback','explain','done'].includes(phase);
+  document.body.dataset.phase = phase;
+  document.body.classList.toggle('question-moment', reading);
+  document.body.classList.remove('peek-scene');
+  $('peek').hidden = true;
+  $('step-title').textContent = question ? (st.transfer ? 'One more orbit' : st.title)
+    : phase === 'teachback' ? 'Make it yours'
+    : phase === 'explain' ? 'Always falling. Always missing.'
+    : phase === 'done' ? 'A new way to see the sky' : st.title;
+  let copy = phase === 'cover' ? 'Toss a ball. It comes down. A satellite is falling too. So why does it never reach the ground?'
+    : question ? q.title
+    : phase === 'feedback' ? (st.transfer ? transfer.why[flow.choice] : q.why[flow.choice])
+    : phase === 'teachback' ? 'A friend asks: “Why doesn’t a satellite fall down?” Explain it in your own words.'
+    : phase === 'explain' ? 'It IS falling. It moves sideways so fast that the ground curves away beneath it. An orbit is a fall that keeps missing.'
+    : phase === 'done' ? 'You followed a ball all the way to an orbit. Look up. Every satellite is doing the same thing.'
+    : phase === 'result' ? resultOf(st) : config?.before[flow.action] || '';
+  if (st.transfer && question) copy = 'A new satellite takes one day per orbit, but its path is tilted. Will it stay over the same spot?';
+  $('step-copy').textContent = copy;
+  $('feedback').textContent = '';
+  const box = $('answers'); box.replaceChildren();
+  if (question) {
+    box.setAttribute('role','radiogroup'); box.setAttribute('aria-label', q.title);
+    q.choices.forEach((text, i) => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.setAttribute('role','radio');
+      button.setAttribute('aria-checked', String(flow.choice === i));
+      button.textContent = text;
+      button.addEventListener('click', () => {
+        flow.choice = i;
+        box.querySelectorAll('button').forEach((b,j) => b.setAttribute('aria-checked',String(i === j)));
+        $('next').textContent = 'Check my answer →';
+        $('next').setAttribute('aria-label','Check my answer');
+      });
+      button.addEventListener('keydown', (event) => {
+        if (!['ArrowDown','ArrowUp','ArrowRight','ArrowLeft'].includes(event.key)) return;
+        event.preventDefault();
+        const offset = ['ArrowDown','ArrowRight'].includes(event.key) ? 1 : -1;
+        const j = (i + offset + q.choices.length) % q.choices.length;
+        const target = box.children[j]; target.click(); target.focus();
+      });
+      box.appendChild(button);
+    });
+  } else { box.removeAttribute('role'); box.removeAttribute('aria-label'); }
+  const labels = {
+    cover:'Start with a ball', action:config?.actions[flow.action], running:'See the result',
+    result: st.transfer ? 'Explain it back' : config && flow.action < config.actions.length - 1 ? config.actions[flow.action + 1] : q ? 'Think it through' : 'Next discovery',
+    question: flow.choice === null ? 'Choose an answer' : 'Check my answer',
+    feedback: st.transfer ? 'Test that prediction' : 'Next discovery',
+    teachback:'See one explanation', explain:'Finish the journey', done:'Back to the map',
+  };
+  const next = $('next'); next.hidden = false; next.disabled = false;
+  next.textContent = (labels[phase] || 'Next discovery') + ' →';
+  next.setAttribute('aria-label', labels[phase] || 'Next discovery');
+  $('back').hidden = !history.length; $('back').disabled = !history.length;
+  $('progress').replaceChildren();
+  for (let i=0;i<STEP_COUNT;i++) { const dot=document.createElement('i'); if(i===journey.step)dot.className='active'; $('progress').appendChild(dot); }
+  $('progress').setAttribute('aria-label', `Chapter ${journey.step + 1} of ${STEP_COUNT}`);
+  $('scene-dock').replaceChildren();
+  const replay = $('replay'); replay.hidden = phase !== 'result';
+  $('step-title').focus({preventScroll:true});
+  if (stageDirty && !reading) fit();
+  draw();
+}
+function finishSegment() {
+  stopPlayback(); runToken++;
+  const st = STEPS[journey.step];
+  if (scene.id === 'drop') { scene.dropped=true; scene.anim=1; scene.pulse=1; }
+  else if (scene.id === 'throw') { scene.idx=scene.run.samples.length-1; scene.thrownSet[scene.choice]=true; }
+  else {
+    scene.t = scene.id === 'orbitLow' ? 600 : ROTATION_PERIOD;
+    scene.trail = [];
+    const total = scene.t; scene.t = 0;
+    for(let i=0;i<=240;i++){scene.t=total*i/240;recordTrail();}
+  }
+  journey.acted[st.id] = true;
+  setPhase('result');
+}
+function beginSegment() {
+  const st = STEPS[journey.step];
+  stopPlayback(); runToken++; flow.phase='running';
+  scene = makeScene(st.scene); primeTrail();
+  if(scene.id==='drop') { scene.dropped=true; scene.anim=0.0001; scene.pulse=0; }
+  else if(scene.id==='throw') {
+    const key = st.id==='miss' ? 'mightiest' : flow.action===0 ? 'gentle' : 'strong';
+    const th=THROWS[key];
+    scene.run=march(th.speed,{altitude:LAUNCH_ALT,maxSeconds:key==='mightiest'?2.2*(2*Math.PI*Math.sqrt((EARTH_RADIUS+LAUNCH_ALT)**3/3.986004415e14)):30000});
+    scene.choice=key; scene.idx=0;
+  } else { scene.pull = scene.id==='orbitLow'; }
   renderGuide();
+  if (reducedMotion) { finishSegment(); return; }
+  segmentStart=null;scene.playing=true;lastWall=null;
+  if(!rafId)rafId=requestAnimationFrame(tick);
 }
 $('next').addEventListener('click', () => {
-  if (journey.step === STEP_COUNT - 1) { journey = reduceJourney(journey, { type: 'reset' }); enterScene(); renderGuide(); }
-  else go(journey.step === 0 ? 'start' : 'next');
+  const st=STEPS[journey.step], phase=flow.phase, config=LESSON[st.id];
+  if(phase==='question' && flow.choice===null) {
+    const first=$('answers').querySelector('button'); first?.focus();
+    $('answers').classList.remove('nudge'); void $('answers').offsetWidth; $('answers').classList.add('nudge'); return;
+  }
+  if(phase==='running'){finishSegment();return;}
+  if(phase==='done'){location.assign('https://wonder-atlas.pages.dev/');return;}
+  remember();
+  if(phase==='cover'){nextChapter();return;}
+  if(phase==='action'){beginSegment();return;}
+  if(phase==='result') {
+    if(st.transfer){setPhase('teachback');return;}
+    if(flow.action<config.actions.length-1){flow.action++;beginSegment();return;}
+    if(questionFor(st)){setPhase('question');return;}
+    nextChapter();return;
+  }
+  if(phase==='question'){
+    journey=reduceJourney(journey,st.transfer?{type:'answerTransfer',choice:flow.choice}:{type:'answer',question:st.question,choice:flow.choice});
+    setPhase('feedback');return;
+  }
+  if(phase==='feedback'){if(st.transfer)beginSegment();else nextChapter();return;}
+  if(phase==='teachback'){setPhase('explain');return;}
+  if(phase==='explain'){setPhase('done');}
 });
-$('back').addEventListener('click', () => go('back'));
-$('reset').addEventListener('click', () => { journey = reduceJourney(journey, { type: 'reset' }); enterScene(); renderGuide(); });
-$('peek').addEventListener('click', () => {
-  const on = document.body.classList.toggle('peek-scene');
-  $('peek').textContent = on ? 'Back to the question ↓' : 'See the picture ↑';
-  if (on && stageDirty) fit();
-  (on ? $('model-stage') : $('answers')).scrollIntoView({ block: 'start' });
+$('back').addEventListener('click', () => {
+  if(!history.length)return; stopPlayback();runToken++;
+  const previous=history.pop();journey=previous.journey;flow=previous.flow;scene=previous.scene;scene.playing=false;
+  if(flow.phase==='running')flow.phase='action'; renderGuide();fit();
 });
+$('replay').addEventListener('click', () => {remember();beginSegment();});
+$('reset').addEventListener('click', () => $('reset-confirm').showModal());
+$('reset-cancel').addEventListener('click', () => $('reset-confirm').close());
+$('reset-yes').addEventListener('click', () => {$('reset-confirm').close();resetAll();});
+function buildDock() { $('scene-dock').replaceChildren(); }
 
-/* ---------- scene dock ---------- */
-const SHORT_LABELS = { '+15 min': '+15m', '+10 min': '+10m', '+1 min': '+1m', '+1 h': '+1h', '↺ Start over': '↺', 'Show Earth’s pull': 'Pull' };
-function dockButton(label, action, opts = {}) {
-  const b = document.createElement('button');
-  const tiny = matchMedia('(max-width: 760px) and (max-height: 650px)').matches && SHORT_LABELS[label];
-  b.textContent = tiny ? SHORT_LABELS[label] : label;
-  if (tiny && !opts.aria) b.setAttribute('aria-label', label);
-  if (opts.pressed !== undefined) b.setAttribute('aria-pressed', String(opts.pressed));
-  if (opts.aria) b.setAttribute('aria-label', opts.aria);
-  b.addEventListener('click', () => { action(); draw(); });
-  return b;
-}
-function finishDock(dock) {
-  const zone = zoneState(STEPS[journey.step]);
-  dock.classList.toggle('locked', zone.active === 'question');
-  if (zone.active === 'question') {
-    // scene pauses while the question has the stage; no gating copy
-    for (const b of dock.querySelectorAll('button')) b.disabled = true;
-  }
-}
-function buildDock() {
-  const dock = $('scene-dock');
-  dock.innerHTML = '';
-  const st = STEPS[journey.step];
-  if (!scene) return;
-  if (scene.id === 'drop') {
-    dock.appendChild(dockButton(scene.dropped ? 'Drop again' : 'Drop the ball', () => {
-      scene.dropped = true; scene.anim = reducedMotion ? 1 : 0.0001; scene.pulse = reducedMotion ? 1 : 0;
-      if (!reducedMotion) { scene.playing = true; lastWall = null; if (!rafId) rafId = requestAnimationFrame(tick); }
-    }));
-    finishDock(dock);
-    return;
-  }
-  if (scene.id === 'throw') {
-    for (const key of st.throws) {
-      dock.appendChild(dockButton(THROWS[key].label, () => launchThrow(key), { pressed: scene.choice === key, aria: `${THROWS[key].label} throw` }));
-    }
-    finishDock(dock);
-    return;
-  }
-  const sid = scene.id;
-  if (!RATE[sid]) return;
-  dock.appendChild(dockButton(scene.playing ? 'Pause' : 'Play', () => {
-    if (scene.playing) stopPlayback(); else startPlayback();
-    buildDock();
-  }, { aria: scene.playing ? 'Pause the motion' : 'Play the motion' }));
-  const [s1, s2] = STEP_SIZES[sid];
-  dock.appendChild(dockButton(`+${s1 >= 3600 ? '1 h' : s1 >= 900 ? '15 min' : s1 >= 600 ? '10 min' : '1 min'}`, () => advance(s1)));
-  dock.appendChild(dockButton(`+${s2 >= 3600 ? '1 h' : '10 min'}`, () => advance(s2)));
-  if (sid === 'orbitLow') {
-    dock.appendChild(dockButton('Show Earth’s pull', () => { scene.pull = !scene.pull; buildDock(); }, { pressed: scene.pull }));
-  }
-  dock.appendChild(dockButton('↺ Start over', () => { const keep = scene.pull; scene = makeScene(scene.id); scene.pull = keep; buildDock(); }, { aria: 'Reset this scene' }));
-  finishDock(dock);
-}
 function launchThrow(key) {
   const th = THROWS[key];
   const isOrbit = key === 'mightiest';
@@ -461,6 +417,7 @@ function inkTextFit(ctx, str, y, size = 15) {
 }
 function inkText(ctx, str, x, y, size = 14, color) {
   ctx.save();
+  size = Math.max(14, size);
   ctx.font = `600 ${size}px system-ui, sans-serif`;
   ctx.fillStyle = color || palette.ink;
   ctx.fillText(str, x, y);
@@ -519,15 +476,16 @@ function drawEarthDisk(ctx, cx, cy, r, seed, withHome, t) {
   ctx.restore();
 }
 function drawTime(ctx, lines) {
-  ctx.save();
-  ctx.globalAlpha = 0.92;
-  lines.forEach((s, i) => {
-    let size = 14;
-    ctx.save();
-    while (size > 9) { ctx.font = `600 ${size}px system-ui, sans-serif`; if (ctx.measureText(s).width <= SW - 32) break; size -= 1; }
-    ctx.restore();
-    inkText(ctx, s, 16, 26 + i * 20, size); noteText('timeLines', s, 16, 26 + i * 20, size);
-  });
+  ctx.save();ctx.font='600 14px system-ui, sans-serif';let y=26;
+  const max=SW - (STEPS[journey.step].ground ? 142 : 32);
+  for(const text of lines){
+    let line='';
+    for(const word of text.split(' ')){
+      if(line && ctx.measureText(line+' '+word).width>max){inkText(ctx,line,16,y,14);noteText('timeLines',line,16,y,14);y+=19;line=word;}
+      else line+=(line?' ':'')+word;
+    }
+    if(line){inkText(ctx,line,16,y,14);noteText('timeLines',line,16,y,14);y+=19;}
+  }
   ctx.restore();
 }
 
@@ -616,17 +574,13 @@ function drawDrop() {
     }
     inkLine(sctx, cx - 20, gy - 2, cx - 30, gy - 12, 21, 0.6);
     inkLine(sctx, cx + 20, gy - 2, cx + 30, gy - 12, 22, 0.6);
-    if (matchMedia('(max-width: 760px)').matches) inkTextFit(sctx, 'Down it comes. Everything falls.', gy + 34, 15);
-    else inkText(sctx, 'Down it comes. Everything falls.', cx - SW * 0.3, gy + 34, 15);
-  } else if (!scene.dropped) {
-    if (matchMedia('(max-width: 760px)').matches) inkTextFit(sctx, 'Held high. Let go…', gy + 34, 15);
-    else inkText(sctx, 'Held high. Let go…', cx - SW * 0.3, gy + 34, 15);
   }
+
 }
 
 function dockH() { const d = $('scene-dock'); return d ? d.offsetHeight + 12 : 0; }
 function drawThrow() {
-  const availH = Math.max(64, SH - dockH() - 62); // dock (measured) plus three caption rows get their own space
+  const availH = Math.max(64, SH - 28); // dock (measured) plus three caption rows get their own space
   const cx = SW / 2, cy = availH / 2 + 8;
   const k = (Math.min(SW, availH) * 0.48) / (EARTH_RADIUS * 1.06);
   const re = EARTH_RADIUS * k;
@@ -636,18 +590,8 @@ function drawThrow() {
   sctx.strokeStyle = palette.ink; sctx.lineWidth = 2;
   inkLine(sctx, mx - 10, cy - re + 3, mx, my, 31, 0.8);
   inkLine(sctx, mx, my, mx + 10, cy - re + 3, 32, 0.8);
-  const mLabel = 'a pretend 400 km mountain, above the air';
-  const lsize = SW < 330 ? 11 : 12;
-  inkText(sctx, mLabel, 16, availH + 48, lsize);
-  noteText('mountainLabel', mLabel, 16, availH + 48, lsize);
-  inkText(sctx, 'not to scale', 16, availH + 8, 12);
-  noteText('caption', 'not to scale', 16, availH + 8, 12);
   const run = scene.run;
-  if (!run) {
-    inkText(sctx, 'Pick a throw strength.', 16, availH + 28, 14);
-    noteText('status', 'Pick a throw strength.', 16, availH + 28, 14);
-    return;
-  }
+  if (!run) return;
   // reveal path up to idx, older ink fading like a pencil line
   const upto = Math.min(scene.idx, run.samples.length - 1);
   sctx.strokeStyle = palette.ink; sctx.lineWidth = 2;
@@ -704,43 +648,8 @@ function drawThrow() {
       i ? sctx.lineTo(px, py) : sctx.moveTo(px, py);
     }
     sctx.stroke();
-    inkText(sctx, bw < 200 ? 'zoomed in' : 'zoomed in, same throw', bx + 10, by2 + 15, bw < 200 ? 10 : 11);
+    inkText(sctx, 'zoomed in', bx + 10, by2 + 19, 14);
     sctx.restore();
-  }
-  const finished = upto >= run.samples.length - 1;
-  let msg;
-  if (!finished) msg = `${(THROWS[scene.choice].speed / 1000).toFixed(1)} km every second…  ${fmtDur(cur.time)}`;
-  else if (run.end === 'landed') {
-    const ang = Math.atan2(run.final.position[0], run.final.position[1]);
-    msg = `Landed about ${fmtKm(EARTH_RADIUS * Math.abs(ang))} away, after ${fmtDur(run.final.time)}.`;
-    inkLine(sctx, bx - 14, by - 2, bx - 22, by - 12, 41, 0.6);
-    inkLine(sctx, bx + 14, by - 2, bx + 22, by - 12, 42, 0.6);
-  } else msg = 'It came all the way around — still falling, still missing the ground.';
-  let stSize = SW < 330 ? 12 : 14;
-  let wrapped = null;
-  if (matchMedia('(max-width: 760px)').matches) {
-    sctx.save();
-    while (stSize > 10) { sctx.font = `600 ${stSize}px system-ui, sans-serif`; if (sctx.measureText(msg).width <= SW - 28) break; stSize -= 0.5; }
-    sctx.font = `600 ${stSize}px system-ui, sans-serif`;
-    if (sctx.measureText(msg).width > SW - 28) {
-      // still too wide at the smallest readable size: two lines, split near the middle
-      const words = msg.split(' ');
-      let best = 1, bestDiff = Infinity;
-      for (let i = 1; i < words.length; i++) {
-        const diff = Math.abs(sctx.measureText(words.slice(0, i).join(' ')).width - sctx.measureText(words.slice(i).join(' ')).width);
-        if (diff < bestDiff) { bestDiff = diff; best = i; }
-      }
-      wrapped = [words.slice(0, best).join(' '), words.slice(best).join(' ')];
-    }
-    sctx.restore();
-  }
-  if (wrapped) {
-    inkText(sctx, wrapped[0], 16, availH + 20, stSize);
-    inkText(sctx, wrapped[1], 16, availH + 33, stSize);
-    noteText('status', msg, 16, availH + 20, stSize);
-  } else {
-    inkText(sctx, msg, 16, availH + 28, stSize);
-    noteText('status', msg, 16, availH + 28, stSize);
   }
 }
 
@@ -772,8 +681,8 @@ function drawOrbitSet(st) {
   if (sid === 'compare') {
     drawOne(CASES.low, palette.coral, 100);
     drawOne(CASES.stationary, palette.coral, 200);
-    const nLow = Math.floor(scene.t / CASES.low.period);
-    const nFar = Math.floor(scene.t / CASES.stationary.period);
+    const nLow = Math.floor((scene.t + 0.001) / CASES.low.period);
+    const nFar = Math.floor((scene.t + 0.001) / CASES.stationary.period);
     if (shortPhone) {
       drawTime(sctx, [
         `Time: ${fmtDur(scene.t)}`,
@@ -826,8 +735,7 @@ function drawGround() {
   gctx.fillStyle = palette.sky;
   gctx.beginPath(); gctx.arc(cx + R, cy, 4.5, 0, 7); gctx.fill();
   gctx.strokeStyle = palette.ink; gctx.lineWidth = 1.2; gctx.stroke();
-  const showHint = w >= 80 && scene.trail.length <= 1 && scene.t === 0;
-  inkText(gctx, 'home', Math.max(2, Math.min(cx + R - 34, w - 32)), showHint ? cy - 18 : cy + 5, 11);
+  inkText(gctx, 'home', Math.max(4, Math.min(cx + R - 40, w - 42)), cy - 12, 14);
   const tiny = w < 80;
   // trail + current ground point
   // trail + current ground point, older ink fading
@@ -853,21 +761,7 @@ function drawGround() {
     gctx.fillStyle = palette.coral;
     gctx.beginPath(); gctx.arc(x, y, 4, 0, 7); gctx.fill();
   }
-  if (scene.trail.length <= 1 && scene.t === 0 && !tiny) {
-    gctx.save(); gctx.globalAlpha = 0.75;
-    inkText(gctx, 'press Play', cx - 30, cy - 4, 11);
-    inkText(gctx, 'to watch a day pass', cx - 52, cy + 12, 11);
-    gctx.restore();
-  } else if (scene.trail.length > 1) {
-    const lats = scene.trail.map((p) => p.lat), lons = scene.trail.map((p) => p.lon);
-    const spread = Math.max(...lats) - Math.min(...lats) + Math.max(...lons) - Math.min(...lons);
-    if (spread < 0.002 && scene.t > 3600 && !tiny) {
-      gctx.save(); gctx.globalAlpha = 0.85;
-      inkText(gctx, 'still over home', cx - 46, cy + R * 0.55, 11.5, palette.coral);
-      gctx.restore();
-    }
-  }
-  if (!tiny) inkText(gctx, 'riding with Earth', 5, w - 8, 9);
+
 }
 
 /* ---------- animation: on-demand loop, no idle rendering ----------
@@ -884,30 +778,18 @@ function loopActive() {
 }
 function tick(now) {
   rafId = null;
-  if (!scene || !scene.playing || reducedMotion) return;
-  if (lastWall === null) lastWall = now;
-  const dt = Math.min(0.1, (now - lastWall) / 1000);
-  lastWall = now;
-  if (scene.id === 'drop') {
-    if (scene.dropped && scene.anim < 1) scene.anim = Math.min(1, scene.anim + dt / 1.1);
-    if (scene.dropped && scene.anim >= 1 && scene.pulse < 1) scene.pulse = Math.min(1, scene.pulse + dt / 0.45);
-  } else if (scene.id === 'throw') {
-    if (scene.run) {
-      const last = scene.run.samples.length - 1;
-      scene.idx = Math.min(last, scene.idx + Math.max(1, Math.round(dt * 55)));
-      if (scene.idx >= last) {
-        scene.thrownSet[scene.choice] = true;
-        if (scene.choice === 'mightiest') scene.idx = 0; // keep orbiting
-      }
-    }
-  } else if (RATE[scene.id]) {
-    const before = scene.t;
-    scene.t += RATE[scene.id] * dt;
-    if (Math.floor(scene.t / 60) !== Math.floor(before / 60)) recordTrail();
+  if (!scene?.playing || reducedMotion || flow.phase !== 'running') return;
+  if(segmentStart===null)segmentStart=now;
+  const duration=scene.id==='drop'?1550:scene.id==='throw'?3600:scene.id==='orbitLow'?2400:ROTATION_PERIOD / 1800 * 1000;
+  const progress=Math.min(1,(now-segmentStart)/duration);
+  if(scene.id==='drop'){scene.anim=Math.min(1,progress/0.72);scene.pulse=Math.max(0,(progress-0.72)/0.28);}
+  else if(scene.id==='throw')scene.idx=Math.floor(progress*(scene.run.samples.length-1));
+  else {
+    const target=scene.id==='orbitLow'?600:ROTATION_PERIOD;
+    scene.t=target*progress;recordTrail();
   }
   draw();
-  if (loopActive()) rafId = requestAnimationFrame(tick);
-  else { scene.playing = false; buildDock(); }
+  if(progress>=1)finishSegment();else rafId=requestAnimationFrame(tick);
 }
 function snapAdvance() {
   if (!scene || !scene.playing) return;
@@ -970,6 +852,7 @@ $('about-close').addEventListener('click', () => $('about').close());
 export function journeyEvidence() {
   const z = zoneState(STEPS[journey.step]);
   return {
+    phase: flow.phase, action: flow.action, choice: flow.choice, historyDepth: history.length,
     step: journey.step,
     stepId: STEPS[journey.step].id,
     playing: !!(scene && scene.playing),
