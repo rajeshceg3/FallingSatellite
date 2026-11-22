@@ -55,6 +55,7 @@ function fit() {
   const r = sceneCanvas.parentElement.getBoundingClientRect();
   const dpr = Math.min(devicePixelRatio || 1, 2);
   SW = r.width; SH = r.height;
+  sceneCanvas.parentElement.classList.toggle("compact-scene", SH < 300);
   sceneCanvas.width = Math.round(SW * dpr); sceneCanvas.height = Math.round(SH * dpr);
   sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const g = groundCanvas.getBoundingClientRect();
@@ -426,7 +427,8 @@ function inkText(ctx, str, x, y, size = 14, color) {
 
 /* layout marks: bounding boxes of drawn text/art, for the no-overlap gate */
 const layoutMarks = {};
-function markReset() { for (const key in layoutMarks) delete layoutMarks[key]; }
+let orbitInsetClearance = null;
+function markReset() { for (const key in layoutMarks) delete layoutMarks[key]; orbitInsetClearance = null; }
 function noteRect(name, x0, y0, x1, y1) {
   const cur = layoutMarks[name];
   layoutMarks[name] = cur
@@ -659,9 +661,23 @@ function drawOrbitSet(st) {
   const topPad = (sid === 'compare' && shortPhone) ? 40 : 0;
   const availH = Math.max(72, SH - dockH() - 12 - topPad);
   const gPad = st.ground ? (shortPhone ? 0.85 : SW < 340 ? 0.62 : 0.82) : 1; // ground steps make room for the inset
-  const cx = st.ground ? SW * 0.45 : SW / 2, cy = topPad + availH / 2 + 6;
+  const cx = st.ground ? SW * 0.45 : SW / 2;
+  let cy = topPad + availH / 2 + 6;
+  const gr = st.ground ? groundCanvas.getBoundingClientRect() : null;
+  const sr = sceneCanvas.getBoundingClientRect();
+  const inset = gr ? {x0:gr.left-sr.left,y0:gr.top-sr.top,x1:gr.right-sr.left,y1:gr.bottom-sr.top} : null;
   const fitR = sid === 'orbitLow' || sid === 'spin' ? EARTH_RADIUS * 2.6 : MATCHED_RADIUS * 1.12;
-  const k = (Math.min(SW, availH) * (shortPhone ? 0.5 : 0.47) * gPad) / fitR;
+  let k = (Math.min(SW, availH) * (shortPhone ? 0.5 : 0.47) * gPad) / fitR;
+  if (inset) {
+    // Fit the whole satellite sweep below the inset, including its glyph.
+    // A current-frame-only check misses a satellite that crosses behind it.
+    const orbit = orbitOf(sid);
+    const amplitude = orbit.radius * k * Math.abs(Math.sin(orbit.inclination + ELEV));
+    const maximum = Math.max(1, (SH - inset.y1 - 28) / 2);
+    if (amplitude > maximum) k *= maximum / amplitude;
+    const fitted = orbit.radius * k * Math.abs(Math.sin(orbit.inclination + ELEV));
+    cy = Math.min(SH - 14 - fitted, Math.max(cy, inset.y1 + 14 + fitted));
+  }
   drawEarthDisk(sctx, cx, cy, EARTH_RADIUS * k, 5, sid === 'spin' || sid === 'match', scene.t);
   const drawOne = (o, color, seed, label) => {
     sctx.strokeStyle = palette.ink; sctx.globalAlpha = 0.5; sctx.lineWidth = 1.4;
@@ -670,11 +686,16 @@ function drawOrbitSet(st) {
     for (let i = 0; i <= N; i++) {
       const p = project(at(o, (i / N) * o.period).position, k, cx, cy);
       noteRect('orbitPath', p[0], p[1], p[0], p[1]);
+      if(inset) {
+        const gap=Math.max(inset.x0-(p[0]+15),(p[0]-15)-inset.x1,inset.y0-(p[1]+10),(p[1]-10)-inset.y1);
+        orbitInsetClearance=Math.min(orbitInsetClearance ?? Infinity,gap);
+      }
       i ? sctx.lineTo(...p) : sctx.moveTo(...p);
     }
     sctx.stroke(); sctx.globalAlpha = 1;
     const p = project(at(o, scene.t % o.period).position, k, cx, cy);
     drawSatellite(sctx, p[0], p[1], seed, 1);
+    noteRect('satellite', p[0] - 15, p[1] - 10, p[0] + 15, p[1] + 10);
     noteRect('orbitPath', p[0] - 8, p[1] - 8, p[0] + 8, p[1] + 8);
     return p;
   };
@@ -852,6 +873,7 @@ $('about-close').addEventListener('click', () => $('about').close());
 export function journeyEvidence() {
   const z = zoneState(STEPS[journey.step]);
   return {
+    orbitInsetClearance,
     phase: flow.phase, action: flow.action, choice: flow.choice, historyDepth: history.length,
     step: journey.step,
     stepId: STEPS[journey.step].id,

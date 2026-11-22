@@ -10,8 +10,9 @@ for(const [w,h,theme,motion] of [[320,568,'light','reduce'],[390,844,'light','no
 const p=await b.newPage({viewport:{width:w,height:h},reducedMotion:motion});let errors=[],requests=[];p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1:8817'))requests.push(r.url())});
 await p.goto('http://127.0.0.1:8817/');await p.waitForFunction(()=>document.body.dataset.phase);
 if(theme==='dark')await p.locator('#theme').click();
-const key=`${w}-${theme}`;let phases=[],issues=[];let count=0;
+const key=`${w}-${theme}`;let phases=[],issues=[],clearances=[];let count=0;
 while(count++<75){
+ await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
  const e=await p.evaluate(async()=> (await import('./main.js')).journeyEvidence());phases.push([e.stepId,e.phase]);
  const audit=await p.evaluate(()=>{
   const visible=e=>!!(e.offsetWidth||e.offsetHeight||e.getClientRects().length)&&getComputedStyle(e).visibility!=='hidden';
@@ -22,6 +23,9 @@ while(count++<75){
   const content=document.querySelector('#guide-content'); const next=document.querySelector('#next').getBoundingClientRect();const r=content.getBoundingClientRect();
   return {tiny,small,outside,scroll:document.documentElement.scrollHeight>innerHeight+1,contentOver:r.bottom>next.top-8,next:{x:next.x,y:next.y,w:next.width,h:next.height}};
  });
+ if(e.orbitInsetClearance !== null)clearances.push({step:e.stepId,phase:e.phase,pixels:e.orbitInsetClearance});
+ if(e.orbitInsetClearance !== null && e.orbitInsetClearance < 4) issues.push({step:e.stepId,phase:e.phase,orbitInsetClearance:e.orbitInsetClearance});
+ if(e.inset && e.layout.satellite){ const a=e.inset,b=e.layout.satellite; const gap=Math.max(a.y0-b.y1,b.y0-a.y1,a.x0-b.x1,b.x0-a.x1); if(gap < 4) issues.push({step:e.stepId,phase:e.phase,artCollision:true,gap,inset:a,satellite:b}); }
  if(audit.tiny.length||audit.small.length||audit.outside.length||audit.scroll||audit.contentOver)issues.push({step:e.stepId,phase:e.phase,...audit});
  if(['cover','question','feedback','result','done'].includes(e.phase))await p.screenshot({path:`${out}/${key}-${String(e.step).padStart(2,'0')}-${e.phase}${e.action?'-'+e.action:''}.png`});
  if(e.phase==='done')break;
@@ -37,7 +41,8 @@ while(count++<75){
  }
 }
 assert(count<75);assert.equal(errors.length,0,errors.join());assert.equal(requests.length,0);
-report.push({key,motion,phases,issues,errors,externalRequests:requests});console.log(key,'phases',phases.length,'issues',issues.length);
+assert.equal(issues.length,0,JSON.stringify(issues));
+report.push({key,motion,phases,clearances,issues,errors,externalRequests:requests});console.log(key,'phases',phases.length,'issues',issues.length);
 // Reversible phases, confirmation cancellation, reset and no stuck button.
 await p.locator('#back').click();assert.equal((await p.evaluate(async()=> (await import('./main.js')).journeyEvidence())).phase,'explain');
 await p.locator('#reset').click();await p.locator('#reset-cancel').click();assert.equal((await p.evaluate(async()=> (await import('./main.js')).journeyEvidence())).phase,'explain');

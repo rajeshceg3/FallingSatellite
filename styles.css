@@ -413,3 +413,6 @@ body.question-moment #step-copy { font-size:clamp(18px,1.8vw,24px); }
 .wordmark span {color:var(--coral);margin-left:8px;}
 @media(max-width:760px){.wordmark{font-size:19px;letter-spacing:-.6px;}.wordmark span{display:none;}}
 @media(max-width:360px){.wordmark{font-size:17px;}}
+
+/* The inset yields space before it can cover a satellite on a short stage. */
+#model-stage.compact-scene #ground {width:80px;}

@@ -26,7 +26,7 @@ The small Back action restores snapshots of the journey, local phase and scene, 
 ## Verification
 
 `npm test` runs the existing 18 physics and journey unit tests.
-`npm run test:browser` runs eight complete phase walks in real Chromium across 320×568, 390×844, 1280×800 and 1440×900 in both modes. The 390 Light run lets the drop and throws settle naturally; long orbit segments use the available See the result action. Other matrix runs use OS reduced motion. Each walk audits targets, type, viewport fit, browser errors and non-local requests. A checkpoint count is not a tap count.
+`npm run test:browser` runs eight complete phase walks in real Chromium across 320×568, 390×844, 1280×800 and 1440×900 in both modes. The 390 Light run lets the drop and throws settle naturally; long orbit segments use the available See the result action. Other matrix runs use OS reduced motion. Each walk audits targets, type, viewport fit, browser errors and non-local requests. Ground-view checkpoints also check the settled satellite drawing and sample its entire trajectory against the inset, with a 4px separation floor. Short scenes use an 80px inset; the orbit scale and center fit the full satellite envelope below it. The smallest sampled separation in the review-fix matrix was 5.77px at 320px. A checkpoint count is not a tap count.
 
 `node tests/sequential-robust.cjs` checks keyboard input, arrow-key selection, wrong-answer retry, Back/replay, reset cancellation and confirmation, blocked storage, live reduced-motion changes and viewport refit. A separate natural-motion check was also run for a complete day-long comparison at the inherited rate, with no question auto-advance.
 
