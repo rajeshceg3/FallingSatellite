@@ -416,3 +416,7 @@ body.question-moment #step-copy { font-size:clamp(18px,1.8vw,24px); }
 
 /* The inset yields space before it can cover a satellite on a short stage. */
 #model-stage.compact-scene #ground {width:80px;}
+
+/* Omit prerequisite actions without shifting the primary or utility slots. */
+.not-ready{visibility:hidden!important;pointer-events:none!important}
+button:active{transform:none}

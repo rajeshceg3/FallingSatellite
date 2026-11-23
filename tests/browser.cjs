@@ -7,6 +7,7 @@ const assert=require('assert/strict');
 (async()=>{await new Promise(r=>server.listen(8817,r));const b=await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--no-sandbox']});let report=[];
 try{
 for(const [w,h,theme,motion] of [[320,568,'light','reduce'],[390,844,'light','no-preference'],[1280,800,'light','reduce'],[1440,900,'dark','reduce'],[1280,800,'dark','reduce'],[1440,900,'light','reduce'],[320,568,'dark','reduce'],[390,844,'dark','reduce']]){
+if(process.env.CASE&&`${w}-${theme}`!==process.env.CASE)continue;
 const p=await b.newPage({viewport:{width:w,height:h},reducedMotion:motion});let errors=[],requests=[];p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(!r.url().startsWith('http://127.0.0.1:8817'))requests.push(r.url())});
 await p.goto('http://127.0.0.1:8817/');await p.waitForFunction(()=>document.body.dataset.phase);
 if(theme==='dark')await p.locator('#theme').click();
@@ -31,7 +32,7 @@ while(count++<75){
  if(e.phase==='done')break;
  if(e.phase==='question'){
   // Selecting never submits, and Next never chooses an answer itself.
-  await p.locator('#next').click();assert.equal((await p.evaluate(async()=> (await import('./main.js')).journeyEvidence())).phase,'question');
+  assert.equal(await p.locator('#next').isVisible(),false);assert.equal(await p.locator('#next').evaluate(e=>e.inert),true);
   await p.locator('#answers button').nth(e.step%3).click();
   assert.equal((await p.evaluate(async()=> (await import('./main.js')).journeyEvidence())).phase,'question');
  }

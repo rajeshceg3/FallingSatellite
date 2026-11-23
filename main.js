@@ -274,6 +274,7 @@ function renderGuide() {
       button.addEventListener('click', () => {
         flow.choice = i;
         box.querySelectorAll('button').forEach((b,j) => b.setAttribute('aria-checked',String(i === j)));
+        $('next').classList.remove('not-ready');$('next').inert=false;$('next').setAttribute('aria-hidden','false');
         $('next').textContent = 'Check my answer →';
         $('next').setAttribute('aria-label','Check my answer');
       });
@@ -295,6 +296,8 @@ function renderGuide() {
     teachback:'See one explanation', explain:'Finish the journey', done:'Back to the map',
   };
   const next = $('next'); next.hidden = false; next.disabled = false;
+  const unavailable=phase==='question'&&flow.choice===null;next.classList.toggle('not-ready',unavailable);next.inert=unavailable;next.setAttribute('aria-hidden',String(unavailable));
+  const reset=$('reset'),atStart=phase==='cover';reset.classList.toggle('not-ready',atStart);reset.inert=atStart;reset.setAttribute('aria-hidden',String(atStart));
   next.textContent = (labels[phase] || 'Next discovery') + ' →';
   next.setAttribute('aria-label', labels[phase] || 'Next discovery');
   $('back').hidden = !history.length; $('back').disabled = !history.length;
