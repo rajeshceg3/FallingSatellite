@@ -494,6 +494,18 @@ function drawTime(ctx, lines) {
   ctx.restore();
 }
 
+
+function readoutBottom(lines, ground) {
+  sctx.save(); sctx.font = '600 14px system-ui, sans-serif';
+  let y = 26; const max = SW - (ground ? 142 : 32);
+  for (const text of lines) { let line = '';
+    for (const word of text.split(' ')) {
+      if (line && sctx.measureText(line + ' ' + word).width > max) { y += 19; line = word; }
+      else line += (line ? ' ' : '') + word; }
+    if (line) y += 19; }
+  sctx.restore(); return y;
+}
+
 /* ---------- drawing: scenes ---------- */
 let stageDirty = false;
 function draw() {
@@ -661,7 +673,26 @@ function drawThrow() {
 function drawOrbitSet(st) {
   const sid = scene.id;
   const shortPhone = SH < 260 && matchMedia('(max-width: 760px)').matches;
-  const topPad = (sid === 'compare' && shortPhone) ? 40 : 0;
+  const readoutLines = () => {
+    if (sid === 'compare') {
+      const nLow = Math.floor((scene.t + 0.001) / CASES.low.period);
+      const nFar = Math.floor((scene.t + 0.001) / CASES.stationary.period);
+      if (shortPhone) return [
+        `Time: ${fmtDur(scene.t)}`,
+        `Near: ${nLow} (${fmtDur(CASES.low.period)} each)  Far: ${nFar} (${fmtDur(CASES.stationary.period)} each)`,
+      ];
+      return [
+        `Time: ${fmtDur(scene.t)}`,
+        `Near satellite: ${nLow} circle${nLow === 1 ? '' : 's'} (one takes ~${fmtDur(CASES.low.period)})`,
+        `Far satellite: ${nFar} circle${nFar === 1 ? '' : 's'} (one takes ~${fmtDur(CASES.stationary.period)})`,
+      ];
+    }
+    if (sid === 'orbitLow' && scene.pull) return [`Time: ${fmtDur(scene.t)}`, 'Earth’s pull up here: about 9/10 of the pull on the ground.'];
+    return [`Time: ${fmtDur(scene.t)}`];
+  };
+  const lines = readoutLines();
+  // readout block reserves its real wrapped height so the orbit always draws below it
+  const topPad = (SH < 300 && matchMedia('(max-width: 760px)').matches) ? readoutBottom(lines, st.ground) + 6 : 0;
   const availH = Math.max(72, SH - dockH() - 12 - topPad);
   const gPad = st.ground ? (shortPhone ? 0.85 : SW < 340 ? 0.62 : 0.82) : 1; // ground steps make room for the inset
   const cx = st.ground ? SW * 0.45 : SW / 2;
@@ -705,23 +736,11 @@ function drawOrbitSet(st) {
   if (sid === 'compare') {
     drawOne(CASES.low, palette.coral, 100);
     drawOne(CASES.stationary, palette.coral, 200);
-    const nLow = Math.floor((scene.t + 0.001) / CASES.low.period);
-    const nFar = Math.floor((scene.t + 0.001) / CASES.stationary.period);
-    if (shortPhone) {
-      drawTime(sctx, [
-        `Time: ${fmtDur(scene.t)}`,
-        `Near: ${nLow} (${fmtDur(CASES.low.period)} each)  Far: ${nFar} (${fmtDur(CASES.stationary.period)} each)`,
-      ]);
-    } else drawTime(sctx, [
-      `Time: ${fmtDur(scene.t)}`,
-      `Near satellite: ${nLow} circle${nLow === 1 ? '' : 's'} (one takes ~${fmtDur(CASES.low.period)})`,
-      `Far satellite: ${nFar} circle${nFar === 1 ? '' : 's'} (one takes ~${fmtDur(CASES.stationary.period)})`,
-    ]);
+    drawTime(sctx, lines);
     return;
   }
   const o = orbitOf(sid);
   const p = drawOne(o, palette.coral, 300);
-  drawTime(sctx, [`Time: ${fmtDur(scene.t)}`]);
   if (sid === 'orbitLow' && scene.pull) {
     // gravity arrow from satellite toward Earth, plus honest strength note
     const dx = cx - p[0], dy = cy - p[1];
@@ -732,8 +751,8 @@ function drawOrbitSet(st) {
     const ah = Math.atan2(dy, dx);
     inkLine(sctx, ax, ay, ax - 9 * Math.cos(ah - 0.45), ay - 9 * Math.sin(ah - 0.45), 501, 0.4);
     inkLine(sctx, ax, ay, ax - 9 * Math.cos(ah + 0.45), ay - 9 * Math.sin(ah + 0.45), 502, 0.4);
-    drawTime(sctx, [`Time: ${fmtDur(scene.t)}`, 'Earth’s pull up here: about 9/10 of the pull on the ground.']);
   }
+  drawTime(sctx, lines);
 }
 
 function drawGround() {
@@ -759,7 +778,7 @@ function drawGround() {
   gctx.fillStyle = palette.sky;
   gctx.beginPath(); gctx.arc(cx + R, cy, 4.5, 0, 7); gctx.fill();
   gctx.strokeStyle = palette.ink; gctx.lineWidth = 1.2; gctx.stroke();
-  inkText(gctx, 'home', Math.max(4, Math.min(cx + R - 40, w - 42)), cy - 12, 14);
+  inkText(gctx, 'home', Math.max(4, Math.min(cx + R - 62, w - 48)), cy + 17, 13);
   const tiny = w < 80;
   // trail + current ground point
   // trail + current ground point, older ink fading
